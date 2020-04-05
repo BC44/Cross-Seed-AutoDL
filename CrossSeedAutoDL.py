@@ -32,8 +32,6 @@ GetFileAttributes = windll.kernel32.GetFileAttributesW
 def main():
 	titlesNotFound = []
 	pathListings = [f for f in os.listdir(MAIN_FOLDER)]
-	additional_listings = []
-
 
 	for i, listing in enumerate(pathListings):
 		print(f'Searching for {i+1} of {len(pathListings)}: {os.path.basename(listing)}')
