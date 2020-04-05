@@ -17,13 +17,13 @@ TRACKER = ''
 JACKETT_URL = 'http://127.0.0.1'
 JACKETT_PORT = '9117'
 
-TITLES_NOT_FOUND_JSON = 'TITLES_NOT_FOUND.json'
+TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
 
 SEARCH_STRING_START = '/api/v2.0/indexers/all/results?apikey='
 SEARCH_STRING_MIDDLE = '&Query='
 SEARCH_STRING_END = '&Tracker%5B%5D='
 
-AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka(.+)\b'
+AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
 
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 GetFileAttributes = windll.kernel32.GetFileAttributesW
