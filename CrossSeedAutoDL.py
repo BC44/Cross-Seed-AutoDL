@@ -2,18 +2,19 @@ import json
 import os
 import re
 import requests
-import PTN
 import shutil
 from ctypes import windll, wintypes
 
 # path to download torrents into
-DOWNLOAD_PATH = r''
+DOWNLOAD_PATH = ''
 # jackett api key
 API_KEY = ''
+
 # the parent folder whose child files/folders names will be used to conduct the search
-MAIN_FOLDER = r''
+MAIN_FOLDER = ''
+
 # tracker (which has been added to your Jackett as an indexer) in which to search for cross-seedable torrents
-TRACKER = ''
+TRACKER = 'blutopia'
 JACKETT_URL = 'http://127.0.0.1'
 JACKETT_PORT = '9117'
 
@@ -25,6 +26,11 @@ SEARCH_STRING_END = '&Tracker%5B%5D='
 
 AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
 
+TITLE_RE = r'(.+?)(\b(\d{4}|\d+p)\b|\b(season|s).?\d+)\b'
+YEAR_RE = r'.+\b((?:19|20)\d\d)\b'
+EDITION_RE = r'(tvdb order|remaster|imax|proper|repack|internal|EXTENDED|UNRATED|DIRECTORS?|COLLECTORS?)(ed)?(.CUT)?'
+GROUP_RE = r'- ?([^\.\s]+) *(\[.+?\])? *(\.\w+)?$'
+
 FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
 GetFileAttributes = windll.kernel32.GetFileAttributesW
 
@@ -34,36 +40,50 @@ def main():
 	pathListings = [f for f in os.listdir(MAIN_FOLDER)]
 
 	for i, listing in enumerate(pathListings):
-		print(f'Searching for {i+1} of {len(pathListings)}: {os.path.basename(listing)}')
+		listingPath = os.path.join(MAIN_FOLDER, listing)
+		if not os.path.isdir(listingPath):
+			continue
 
-		listingPath = f'{MAIN_FOLDER}\\{listing}'
+		group = getGroupName(listing)
+		title = listing
+		m = re.search(TITLE_RE, title, re.IGNORECASE)
+		if m: title = m.group(1)
 
+		year = ''
+		m = re.search(YEAR_RE, listing)
+		if m: year = m.group(1)
+
+		title = re.sub(r'\'s\b', ' ', title, flags=re.IGNORECASE)
+		title = re.sub(r'\s+', ' ', title, flags=re.IGNORECASE)
+		title = re.sub(EDITION_RE, ' ', title, flags=re.IGNORECASE)
+		title = re.sub(r'[\W_]', ' ', title)
+		
+		# print(title)
 		pathSize = get_size(listingPath)
 		if pathSize == None:
 			continue
 
-		info = PTN.parse(listing)
-		title = info['title']
-		title = re.sub(r'(-|\W+$)', ' ', title)
-		year = info.get('year', '')
-
 		queries = []
 		if re.search(AKA_DUAL_LANG_NAME_RE, title, re.IGNORECASE):
-			queries.append(re.sub(AKA_DUAL_LANG_NAME_RE, r'\1', title, flags=re.IGNORECASE))
-			queries.append(re.sub(AKA_DUAL_LANG_NAME_RE, r'\2', title, flags=re.IGNORECASE))
+			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\1', title, flags=re.IGNORECASE) + f' {year} {group}'
+			queries.append(editedTitle)
+			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\2', title, flags=re.IGNORECASE) + f' {year} {group}'
+			queries.append(editedTitle)
 		else:
-			queries.append(title)
+			queries.append(f'{title} {year} {group}')
 
+		print(f'Searching for {i+1} of {len(pathListings)}:\t{queries}\t{[listing]}')
+		# print(queries, '\t\t\t', listing, '\n');continue
 		for query in queries:
-			query = f'{query} {year}' 
 			query = '%20'.join(query.split())
-			query = re.sub(r'\'', '%27', query)
+			# query = re.sub(r'\'', '%27', query)
 
 			searchURL = f'{JACKETT_URL}:{JACKETT_PORT}{SEARCH_STRING_START}{API_KEY}{SEARCH_STRING_MIDDLE}{query}{SEARCH_STRING_END}{TRACKER}'
 			source = requests.get(searchURL).text
 			returnedJSON = json.loads(source)
+			print([f['Title'] for f in returnedJSON['Results']]); print('');continue
 
-			found = findMatchingTorrent(returnedJSON, pathSize)
+			found = findMatchingTorrent(returnedJSON, pathSize, listingPath)
 			if found == False:
 				titlesNotFound.append(listing)
 
@@ -119,7 +139,18 @@ def validatePath(filepath):
 	return filepath
 
 
-def findMatchingTorrent(returnedJSON, pathSize):
+def getGroupName(releaseName):
+	m = re.search(GROUP_RE, releaseName)
+	if m:
+		return m.group(1)
+	return ''
+
+
+def findMatchingTorrent(returnedJSON, pathSize, listingPath):
+	MB = 1000000
+	MAX_FILESIZE_DIFFERENCE = 10 * MB
+	if os.path.isfile(listingPath) and pathSize < 1000 * MB:
+		MAX_FILESIZE_DIFFERENCE = 0.01 * MB
 	found = False
 	for result in returnedJSON['Results']:
 		listingTitle = result['Title']
@@ -127,7 +158,7 @@ def findMatchingTorrent(returnedJSON, pathSize):
 		listingSize = result['Size']
 
 		# if size difference is less than the below referenced number of bytes, download torrent
-		if abs(pathSize - listingSize) < 10 * 1000000:
+		if abs(pathSize - listingSize) <= MAX_FILESIZE_DIFFERENCE:
 			found = True
 			print('  >> Found possible match. Downloading\n')
 			downloadTorrent(downloadURL, listingTitle)
