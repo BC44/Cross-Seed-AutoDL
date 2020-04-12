@@ -5,11 +5,13 @@ import requests
 import shutil
 from ctypes import windll, wintypes
 
+############################
+# edit these variables as it applies to your working environment
+
 # path to download torrents into
 DOWNLOAD_PATH = ''
 # jackett api key
 API_KEY = ''
-
 # the parent folder whose child files/folders names will be used to conduct the search
 MAIN_FOLDER = ''
 
@@ -17,6 +19,8 @@ MAIN_FOLDER = ''
 TRACKER = 'blutopia'
 JACKETT_URL = 'http://127.0.0.1'
 JACKETT_PORT = '9117'
+
+############################
 
 TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
 
