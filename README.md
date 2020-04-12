@@ -1,5 +1,5 @@
 # Cross-Seed-AutoDL
-Crappily finds cross-seedable torrents via Jackett
+Crappily finds cross-seedable torrents via Jackett. Parses existing files/folders to in order to download matching torrents
 
 Requires [Jackett](https://github.com/Jackett/Jackett)
 
