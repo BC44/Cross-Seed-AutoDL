@@ -43,7 +43,7 @@ GetFileAttributes = windll.kernel32.GetFileAttributesW
 
 def main():
 	titlesNotFound = []
-	pathListings = [f for f in os.listdir(MAIN_FOLDER)]
+	pathListings = os.listdir(MAIN_FOLDER)
 
 	for i, listing in enumerate(pathListings):
 		listingPath = os.path.join(MAIN_FOLDER, listing)
