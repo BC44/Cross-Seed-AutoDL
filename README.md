@@ -12,4 +12,4 @@ This script was created to be used in a Windows environment
 
 # Setup
 
-edit the .py file and change the values of variables at the top of the python file enclosed by the hash symbol `#`. Since this script is meant for windows, you'll want to add your Windows paths with the backslashes escaped (meaning, for every backslash `\`, you need to prepend it with another backslash `\\`
+edit the .py file and change the values of variables at the top of the python file enclosed by the hash symbol `#`. Since this script is meant for windows, you'll want to add your Windows paths with the backslashes escaped (meaning, for every backslash `\`, you need to prepend it with another backslash. If you copy a path that looks like this: `D:\downloads\downloadspot`, you should input it into the python file as `D:\\downloads\\downloadspot`
