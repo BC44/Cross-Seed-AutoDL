@@ -11,11 +11,11 @@ from ctypes import windll, wintypes
 # edit these variables as it applies to your working environment
 
 # path to download torrents into
-DOWNLOAD_PATH = ''
+DOWNLOAD_PATH = r''
 # jackett api key
 API_KEY = ''
 # the parent folder whose child files/folders names will be used to conduct the search
-MAIN_FOLDER = ''
+MAIN_FOLDER = r''
 
 # tracker (which has been added to your Jackett as an indexer) in which to search for cross-seedable torrents
 TRACKER = 'blutopia'
