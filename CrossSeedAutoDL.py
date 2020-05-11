@@ -25,6 +25,7 @@ JACKETT_PORT = '9117'
 ############################
 
 TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
+LOG_FILE = 'SimpleLog.log'
 
 SEARCH_STRING_START = '/api/v2.0/indexers/all/results?apikey='
 SEARCH_STRING_MIDDLE = '&Query='
@@ -44,11 +45,10 @@ GetFileAttributes = windll.kernel32.GetFileAttributesW
 def main():
 	titlesNotFound = []
 	pathListings = os.listdir(MAIN_FOLDER)
+	finalLogStr = ''
 
 	for i, listing in enumerate(pathListings):
 		listingPath = os.path.join(MAIN_FOLDER, listing)
-		if not os.path.isdir(listingPath):
-			continue
 
 		group = getGroupName(listing)
 		title = listing
@@ -78,8 +78,12 @@ def main():
 		else:
 			queries.append(f'{title} {year} {group}')
 
-		print(f'Searching for {i+1} of {len(pathListings)}:\t{queries}\t{[listing]}')
-		# print(queries, '\t\t\t', listing, '\n');continue
+		queries = [' '.join(f.split()) for f in queries]
+
+		logStr = f'Searching for {i+1} of {len(pathListings)}:\t{queries}\t{[listing, pathSize]}\n'
+		finalLogStr += logStr
+		print(logStr)
+
 		for query in queries:
 			query = '%20'.join(query.split())
 			# query = re.sub(r'\'', '%27', query)
@@ -87,11 +91,19 @@ def main():
 			searchURL = f'{JACKETT_URL}:{JACKETT_PORT}{SEARCH_STRING_START}{API_KEY}{SEARCH_STRING_MIDDLE}{query}{SEARCH_STRING_END}{TRACKER}'
 			source = requests.get(searchURL).text
 			returnedJSON = json.loads(source)
-			print([f['Title'] for f in returnedJSON['Results']]); print('');continue
 
-			found = findMatchingTorrent(returnedJSON, pathSize, listingPath)
+			logStr = {f['Title']:f['Size'] for f in returnedJSON['Results']}
+			finalLogStr += str(logStr) + '\n'
+			print(logStr)
+
+			found, announceDownloadings = findMatchingTorrent(returnedJSON, pathSize, listingPath)
+			finalLogStr += '\n'.join(announceDownloadings) + '\n'
 			if found == False:
 				titlesNotFound.append(listing)
+
+			if i % 10 == 0 and i != 0:
+				with open(LOG_FILE, 'w', encoding='utf8') as f:
+					f.write(finalLogStr)
 
 	with open(TITLES_NOT_FOUND_JSON, 'w', encoding='utf8') as f:
 		json.dump(titlesNotFound, f, indent=4)
@@ -155,6 +167,8 @@ def getGroupName(releaseName):
 def findMatchingTorrent(returnedJSON, pathSize, listingPath):
 	MB = 1000000
 	MAX_FILESIZE_DIFFERENCE = 10 * MB
+	announceDownloadings = []
+
 	if os.path.isfile(listingPath) and pathSize < 1000 * MB:
 		MAX_FILESIZE_DIFFERENCE = 0.01 * MB
 	found = False
@@ -166,9 +180,11 @@ def findMatchingTorrent(returnedJSON, pathSize, listingPath):
 		# if size difference is less than the below referenced number of bytes, download torrent
 		if abs(pathSize - listingSize) <= MAX_FILESIZE_DIFFERENCE:
 			found = True
-			print('  >> Found possible match. Downloading\n')
+			announceDownloading = '  >> Found possible match. Downloading\n'
+			announceDownloadings.append('  >> Found possible match. Downloading\n')
+			print(announceDownloading)
 			downloadTorrent(downloadURL, listingTitle)
-	return found
+	return found, announceDownloadings
 
 
 def downloadTorrent(downloadURL, torrentName):
