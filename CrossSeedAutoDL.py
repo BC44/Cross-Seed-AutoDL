@@ -101,7 +101,7 @@ def main():
 			if found == False:
 				titlesNotFound.append(listing)
 
-			if i % 10 == 0 and i != 0:
+			if i % 10 == 0 and i != 0 or i == len(pathListings) - 1:
 				with open(LOG_FILE, 'w', encoding='utf8') as f:
 					f.write(finalLogStr)
 
