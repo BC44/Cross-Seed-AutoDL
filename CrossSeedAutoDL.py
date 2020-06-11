@@ -139,10 +139,10 @@ def get_file_size(filepath):
 
 def islink(filepath):
 	if OS_NAME == 'nt':
-	    if GetFileAttributes(filepath) & FILE_ATTRIBUTE_REPARSE_POINT:
-	        return True
-	    else:
-	        return False
+		if GetFileAttributes(filepath) & FILE_ATTRIBUTE_REPARSE_POINT:
+			return True
+		else:
+			return False
 	else:
 		if os.path.islink(filepath):
 			return True
