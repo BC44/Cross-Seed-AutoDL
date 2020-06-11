@@ -74,12 +74,12 @@ def main():
 
 		queries = []
 		if re.search(AKA_DUAL_LANG_NAME_RE, title, re.IGNORECASE):
-			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\1', title, flags=re.IGNORECASE) + f' {year} {group}'
+			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\1', title, flags=re.IGNORECASE) + f' {year}'
 			queries.append(editedTitle)
-			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\2', title, flags=re.IGNORECASE) + f' {year} {group}'
+			editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\2', title, flags=re.IGNORECASE) + f' {year}'
 			queries.append(editedTitle)
 		else:
-			queries.append(f'{title} {year} {group}')
+			queries.append(f'{title} {year}')
 
 		queries = [' '.join(f.split()) for f in queries]
 
