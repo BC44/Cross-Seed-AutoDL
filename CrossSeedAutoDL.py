@@ -34,7 +34,7 @@ AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
 
 TITLE_RE = r'(.+?)(\b(\d{4}|\d+p)\b|\b(season|s).?\d+)\b'
 YEAR_RE = r'.+\b((?:19|20)\d\d)\b'
-EDITION_RE = r'(tvdb order|remaster|imax|proper|repack|internal|EXTENDED|UNRATED|DIRECTORS?|COLLECTORS?)(ed)?(.CUT)?'
+EDITION_RE = r'(tvdb.order|remaster|imax|proper|repack|internal|EXTENDED|UNRATED|DIRECTORS?|COLLECTORS?)(ed)?(.CUT)?'
 GROUP_RE = r'- ?([^\.\s]+) *(\[.+?\])? *(\.\w+)?$'
 
 OS_NAME = os.name
