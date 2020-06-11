@@ -1,11 +1,10 @@
-#! Python 3.6
+#!python3
 
 import json
 import os
 import re
 import requests
 import shutil
-from ctypes import windll, wintypes
 
 ############################
 # edit these variables as it applies to your working environment
@@ -38,8 +37,12 @@ YEAR_RE = r'.+\b((?:19|20)\d\d)\b'
 EDITION_RE = r'(tvdb order|remaster|imax|proper|repack|internal|EXTENDED|UNRATED|DIRECTORS?|COLLECTORS?)(ed)?(.CUT)?'
 GROUP_RE = r'- ?([^\.\s]+) *(\[.+?\])? *(\.\w+)?$'
 
-FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
-GetFileAttributes = windll.kernel32.GetFileAttributesW
+OS_NAME = os.name
+
+if OS_NAME == 'nt':
+	from ctypes import windll, wintypes
+	FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
+	GetFileAttributes = windll.kernel32.GetFileAttributesW
 
 
 def main():
@@ -135,11 +138,16 @@ def get_file_size(filepath):
 
 
 def islink(filepath):
-    # assert os.path.isdir(filepath), filepath
-    if GetFileAttributes(filepath) & FILE_ATTRIBUTE_REPARSE_POINT:
-        return True
-    else:
-        return False
+	if OS_NAME == 'nt':
+	    if GetFileAttributes(filepath) & FILE_ATTRIBUTE_REPARSE_POINT:
+	        return True
+	    else:
+	        return False
+	else:
+		if os.path.islink(filepath):
+			return True
+		else:
+			return False
 
 
 def validatePath(filepath):
@@ -188,7 +196,8 @@ def findMatchingTorrent(returnedJSON, pathSize, listingPath):
 
 
 def downloadTorrent(downloadURL, torrentName):
-	torrentName = re.sub(r'[<>:\"/\\?*\|]+', '', torrentName)
+	if OS_NAME == 'nt':
+		torrentName = re.sub(r'[<>:\"/\\?*\|]+', '', torrentName)
 
 	response = requests.get(downloadURL, stream=True)
 	projectedPath = os.path.join(DOWNLOAD_PATH, f'{torrentName}.torrent')
@@ -200,3 +209,4 @@ def downloadTorrent(downloadURL, torrentName):
 
 if __name__ == '__main__':
 	main()
+	
