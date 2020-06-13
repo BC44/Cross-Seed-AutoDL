@@ -11,3 +11,5 @@ Copy exact string for the tracker that appears in the torznab feed URL in Jacket
 # Setup
 
 edit the .py file and change the values of variables at the top of the python file enclosed by the hash symbol `#`. If you copy a Windows path as `D:\Downloads\downloadspot`, you should add it to the python variable as `r'D:\Downloads\downloadspot'`
+
+Run `pip3 install -r requirements.txt` to install the required libraries
