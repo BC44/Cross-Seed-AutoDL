@@ -5,6 +5,7 @@ import os
 import re
 import requests
 import shutil
+from string import Template
 
 ############################
 # edit these variables as it applies to your working environment
@@ -26,9 +27,7 @@ JACKETT_PORT = '9117'
 TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
 LOG_FILE = 'SimpleLog.log'
 
-SEARCH_STRING_START = '/api/v2.0/indexers/all/results?apikey='
-SEARCH_STRING_MIDDLE = '&Query='
-SEARCH_STRING_END = '&Tracker%5B%5D='
+SEARCH_URL_TEMPLATE = '$JACKETT_URL:$JACKETT_PORT/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS'
 
 AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
 
@@ -91,7 +90,8 @@ def main():
             query = '%20'.join(query.split())
             # query = re.sub(r'\'', '%27', query)
 
-            searchURL = f'{JACKETT_URL}:{JACKETT_PORT}{SEARCH_STRING_START}{API_KEY}{SEARCH_STRING_MIDDLE}{query}{SEARCH_STRING_END}{TRACKER}'
+            searchURL = Template(SEARCH_URL_TEMPLATE)
+            searchURL = searchURL.substitute(JACKETT_URL=JACKETT_URL, JACKETT_PORT=JACKETT_PORT, API_KEY=API_KEY, SEARCH_STRING=query, TRACKERS=TRACKER)
             source = requests.get(searchURL).text
             returnedJSON = json.loads(source)
 
