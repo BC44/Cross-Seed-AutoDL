@@ -16,17 +16,16 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 # Usage
 
-	D:\My Docs\_Programming\Cross-Seed-AutoDL>py CrossSeedAutoDL.py -h
-	usage: CrossSeedAutoDL.py [-h] -i INPUT_PATH -s SAVE_PATH [-p] -u JACKETT_URL -k API_KEY -t TRACKERS
+	usage: CrossSeedAutoDL.py [-h] [-p] -i INPUT_PATH -s SAVE_PATH -u JACKETT_URL -k API_KEY -t TRACKERS
 
 	Searches for cross-seedable torrents
 
 	optional arguments:
 	  -h, --help            show this help message and exit
+	  -p, --parse-dir       Indicates if input folder is the root folder for multiple downloaded content (eg. your torrent
+	                        client download directory)
 	  -i INPUT_PATH         File or Folder for which to find a matching torrent
 	  -s SAVE_PATH          Directory in which to store downloaded torrents
-	  -p, --parse-dir       Indicates if input folder is the root folder for all downloaded content (eg. your torrent
-	                        client download directory)
 	  -u JACKETT_URL, --url JACKETT_URL
 	                        URL for your Jackett instance, including port number if needed
 	  -k API_KEY, --api-key API_KEY
