@@ -1,6 +1,6 @@
 #!python3
-test
 
+import argparse
 import json
 import os
 import re
@@ -8,27 +8,21 @@ import requests
 import shutil
 from string import Template
 
-############################
-# edit these variables as it applies to your working environment
+parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
+parser.add_argument('-i', metavar='INPUT_PATH', dest='INPUT_PATH', type=str, required=True, help='File or Folder for which to find a matching torrent')
+parser.add_argument('-s', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
+parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Indicates if input folder is the \
+                    root folder for all downloaded content (eg. your torrent client download directory)')
+parser.add_argument('-u', '--url', metavar='JACKETT_URL', dest='JACKETT_URL', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
+parser.add_argument('-k', '--api-key', metavar='API_KEY', dest='API_KEY', type=str, required=True, help='API key for your Jackett instance')
+parser.add_argument('-t', '--trackers', metavar='TRACKERS', dest='TRACKERS', type=str, required=True, help='Tracker(s) on which to search. Comma-separates if multiple (no spaces)')
+args = parser.parse_args()
 
-# path to download torrents into
-DOWNLOAD_PATH = r''
-# jackett api key
-API_KEY = ''
-# the parent folder whose child files/folders names will be used to conduct the search
-MAIN_FOLDER = r''
-
-# tracker (which has been added to your Jackett as an indexer) in which to search for cross-seedable torrents
-TRACKER = 'blutopia'
-JACKETT_URL = 'http://127.0.0.1'
-JACKETT_PORT = '9117'
-
-############################
 
 TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
 LOG_FILE = 'SimpleLog.log'
 
-SEARCH_URL_TEMPLATE = '$JACKETT_URL:$JACKETT_PORT/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS'
+SEARCH_URL_TEMPLATE = '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS'
 
 AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
 
@@ -47,19 +41,22 @@ if OS_NAME == 'nt':
 
 def main():
     titlesNotFound = []
-    pathListings = os.listdir(MAIN_FOLDER)
+    # pathListings = os.listdir(MAIN_FOLDER)
+    paths = [os.path.normpath(args.INPUT_PATH)] if not args.PARSE_DIR else [os.path.join(args.INPUT_PATH, f) for f in os.listdir(args.INPUT_PATH)]
     finalLogStr = ''
 
-    for i, listing in enumerate(pathListings):
-        listingPath = os.path.join(MAIN_FOLDER, listing)
+    # for i, listing in enumerate(pathListings):
+    for i, path in enumerate(paths):
+        # listingPath = os.path.join(MAIN_FOLDER, listing)
+        path_basename = os.path.basename(path)
 
-        group = getGroupName(listing)
-        title = listing
+        group = getGroupName(path_basename)
+        title = path_basename
         m = re.search(TITLE_RE, title, re.IGNORECASE)
         if m: title = m.group(1)
 
         year = ''
-        m = re.search(YEAR_RE, listing)
+        m = re.search(YEAR_RE, path_basename)
         if m: year = m.group(1)
 
         title = re.sub(r'\'s\b', ' ', title, flags=re.IGNORECASE)
@@ -68,7 +65,7 @@ def main():
         title = re.sub(r'[\W_]', ' ', title)
 
         # print(title)
-        pathSize = get_size(listingPath)
+        pathSize = get_size(path)
         if pathSize == None:
             continue
 
@@ -83,7 +80,7 @@ def main():
 
         queries = [' '.join(f.split()) for f in queries]
 
-        logStr = f'Searching for {i+1} of {len(pathListings)}:\t{queries}\t{[listing, pathSize]}\n'
+        logStr = f'Searching for {i+1} of {len(paths)}:\t{queries}\t{[path_basename, pathSize]}\n'
         finalLogStr += logStr
         print(logStr)
 
@@ -92,7 +89,7 @@ def main():
             # query = re.sub(r'\'', '%27', query)
 
             searchURL = Template(SEARCH_URL_TEMPLATE)
-            searchURL = searchURL.substitute(JACKETT_URL=JACKETT_URL, JACKETT_PORT=JACKETT_PORT, API_KEY=API_KEY, SEARCH_STRING=query, TRACKERS=TRACKER)
+            searchURL = searchURL.substitute(JACKETT_URL=args.JACKETT_URL.strip('/'), API_KEY=args.API_KEY, SEARCH_STRING=query, TRACKERS=args.TRACKERS)
             source = requests.get(searchURL).text
             returnedJSON = json.loads(source)
 
@@ -100,12 +97,12 @@ def main():
             finalLogStr += str(logStr) + '\n'
             print(logStr)
 
-            found, announceDownloadings = findMatchingTorrent(returnedJSON, pathSize, listingPath)
+            found, announceDownloadings = findMatchingTorrent(returnedJSON, pathSize, path)
             finalLogStr += '\n'.join(announceDownloadings) + '\n'
             if found == False:
-                titlesNotFound.append(listing)
+                titlesNotFound.append(path_basename)
 
-            if i % 10 == 0 and i != 0 or i == len(pathListings) - 1:
+            if i % 10 == 0 and i != 0 or i == len(paths) - 1:
                 with open(LOG_FILE, 'w', encoding='utf8') as f:
                     f.write(finalLogStr)
 
@@ -200,7 +197,7 @@ def downloadTorrent(downloadURL, torrentName):
         torrentName = re.sub('/', '-', torrentName)
 
     response = requests.get(downloadURL, stream=True)
-    downloadPath = os.path.join(DOWNLOAD_PATH, f'{torrentName}.torrent')
+    downloadPath = os.path.join(args.SAVE_PATH, f'{torrentName}.torrent')
     downloadPath = validatePath(downloadPath)
 
     with open(downloadPath, 'wb') as f:
