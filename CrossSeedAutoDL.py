@@ -12,15 +12,16 @@ parser = argparse.ArgumentParser(description='Searches for cross-seedable torren
 parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Indicates if input folder is the \
                     root folder for all downloaded content (eg. your torrent client download directory)')
 parser.add_argument('-i', metavar='INPUT_PATH', dest='INPUT_PATH', type=str, required=True, help='File or Folder for which to find a matching torrent')
-parser.add_argument('-s', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
+parser.add_argument('-s', '--save-path', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
 parser.add_argument('-u', '--url', metavar='JACKETT_URL', dest='JACKETT_URL', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
 parser.add_argument('-k', '--api-key', metavar='API_KEY', dest='API_KEY', type=str, required=True, help='API key for your Jackett instance')
 parser.add_argument('-t', '--trackers', metavar='TRACKERS', dest='TRACKERS', type=str, required=True, help='Tracker(s) on which to search. Comma-separates if multiple (no spaces)')
 args = parser.parse_args()
 
-
+DOWNLOAD_HISTORY = []
+DOWNLOAD_HISTORY_JSON = './DownloadHistory.json'
 TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
-LOG_FILE = 'SimpleLog.log'
+LOG_FILE = './SimpleLog.log'
 
 SEARCH_URL_TEMPLATE = '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS'
 
@@ -44,6 +45,8 @@ def main():
     # pathListings = os.listdir(MAIN_FOLDER)
     paths = [os.path.normpath(args.INPUT_PATH)] if not args.PARSE_DIR else [os.path.join(args.INPUT_PATH, f) for f in os.listdir(args.INPUT_PATH)]
     finalLogStr = ''
+
+    loadDownloadHistory()
 
     # for i, listing in enumerate(pathListings):
     for i, path in enumerate(paths):
@@ -80,7 +83,7 @@ def main():
 
         queries = [' '.join(f.split()) for f in queries]
 
-        logStr = f'Searching for {i+1} of {len(paths)}:\t{queries}\t{[path_basename, pathSize]}\n'
+        logStr = f'\n\nSearching for {i+1} of {len(paths)}:\t{queries}\t{[path_basename, pathSize]}\n'
         finalLogStr += logStr
         print(logStr)
 
@@ -108,6 +111,9 @@ def main():
 
     with open(TITLES_NOT_FOUND_JSON, 'w', encoding='utf8') as f:
         json.dump(titlesNotFound, f, indent=4)
+
+    with open(DOWNLOAD_HISTORY_JSON, 'w', encoding='utf8') as f:
+        json.dump(DOWNLOAD_HISTORY, f, indent=4)
 
 
 def get_size(path):
@@ -180,13 +186,19 @@ def findMatchingTorrent(returnedJSON, pathSize, listingPath):
         downloadURL = result['Link']
         listingSize = result['Size']
 
+        torrent_listing_info = f'{result["Tracker"]}/{listingTitle}'
+
         # if size difference is less than the below referenced number of bytes, download torrent
         if abs(pathSize - listingSize) <= MAX_FILESIZE_DIFFERENCE:
             found = True
-            announceDownloading = '  >> Found possible match. Downloading\n'
-            announceDownloadings.append('  >> Found possible match. Downloading\n')
-            print(announceDownloading)
-            downloadTorrent(downloadURL, listingTitle)
+            if torrent_listing_info not in DOWNLOAD_HISTORY:
+                print('\n  >> Found possible match. Downloading\n')
+                announceDownloadings.append('\n  >> Found possible match. Downloading\n')
+                DOWNLOAD_HISTORY.append(torrent_listing_info)
+                downloadTorrent(downloadURL, listingTitle)
+            else:
+                print(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
+                announceDownloadings.append(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
     return found, announceDownloadings
 
 
@@ -202,6 +214,15 @@ def downloadTorrent(downloadURL, torrentName):
 
     with open(downloadPath, 'wb') as f:
         shutil.copyfileobj(response.raw, f)
+
+
+def loadDownloadHistory():
+    global DOWNLOAD_HISTORY
+    try:
+        with open(DOWNLOAD_HISTORY_JSON, 'r', encoding='utf8') as f:
+            DOWNLOAD_HISTORY = json.load(f)
+    except Exception:
+        DOWNLOAD_HISTORY = []
 
 
 if __name__ == '__main__':
