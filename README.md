@@ -18,7 +18,7 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 # Usage
 
-	usage: CrossSeedAutoDL.py [-h] [-p] -i INPUT_PATH -s SAVE_PATH -u JACKETT_URL -k API_KEY -t TRACKERS
+	usage: CrossSeedAutoDL.py [-h] [-p] [-d DELAY] -i INPUT_PATH -s SAVE_PATH -u JACKETT_URL -k API_KEY -t TRACKERS
 
 	Searches for cross-seedable torrents
 
