@@ -26,6 +26,8 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 	  -h, --help            show this help message and exit
 	  -p, --parse-dir       Indicates if input folder is the root folder for multiple downloaded content (eg. your torrent
 	                        client download directory)
+      -d DELAY, --delay DELAY
+                        Pause duration (in seconds) between searches (default: 10)
 	  -i INPUT_PATH         File or Folder for which to find a matching torrent
 	  -s SAVE_PATH          Directory in which to store downloaded torrents
 	  -u JACKETT_URL, --url JACKETT_URL
