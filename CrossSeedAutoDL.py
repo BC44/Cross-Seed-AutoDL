@@ -6,11 +6,13 @@ import os
 import re
 import requests
 import shutil
+import time
 from string import Template
 
 parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
 parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Indicates if input folder is the \
                     root folder for all downloaded content (eg. your torrent client download directory)')
+parser.add_argument('-d', '--delay', metavar='DELAY', dest='DELAY', type=int, default=10, help='Pause duration (in seconds) between searches (default: 10)')
 parser.add_argument('-i', metavar='INPUT_PATH', dest='INPUT_PATH', type=str, required=True, help='File or Folder for which to find a matching torrent')
 parser.add_argument('-s', '--save-path', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
 parser.add_argument('-u', '--url', metavar='JACKETT_URL', dest='JACKETT_URL', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
@@ -108,6 +110,7 @@ def main():
             if i % 10 == 0 and i != 0 or i == len(paths) - 1:
                 with open(LOG_FILE, 'w', encoding='utf8') as f:
                     f.write(finalLogStr)
+        time.sleep(args.DELAY)
 
     with open(TITLES_NOT_FOUND_JSON, 'w', encoding='utf8') as f:
         json.dump(titlesNotFound, f, indent=4)
