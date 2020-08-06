@@ -1,5 +1,7 @@
 # Cross-Seed-AutoDL
-Crappily finds cross-seedable torrents for Movies and TV via Jackett. Parses existing files/folders in order to download matching torrents
+Finds cross-seedable torrents for Movies and TV via Jackett. Parses existing files/folders in order to download matching torrents.
+
+Requires minimum python 3.6
 
 Requires [Jackett](https://github.com/Jackett/Jackett)
 
