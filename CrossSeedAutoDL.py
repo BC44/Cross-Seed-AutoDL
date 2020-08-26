@@ -188,20 +188,23 @@ def findMatchingTorrent(returnedJSON, pathSize, listingPath):
         listingTitle = result['Title']
         downloadURL = result['Link']
         listingSize = result['Size']
-
         torrent_listing_info = f'{result["Tracker"]}/{listingTitle}'
-
         # if size difference is less than the below referenced number of bytes, download torrent
         if abs(pathSize - listingSize) <= MAX_FILESIZE_DIFFERENCE:
-            found = True
-            if torrent_listing_info not in DOWNLOAD_HISTORY:
-                print('\n  >> Found possible match. Downloading\n')
-                announceDownloadings.append('\n  >> Found possible match. Downloading\n')
-                DOWNLOAD_HISTORY.append(torrent_listing_info)
-                downloadTorrent(downloadURL, listingTitle)
+            if str(downloadURL) != 'None': # if url returns None, break download
+                found = True
+                if torrent_listing_info not in DOWNLOAD_HISTORY:
+                    print('\n  >> Found possible match. Downloading\n')
+                    announceDownloadings.append('\n  >> Found possible match. Downloading\n')
+                    DOWNLOAD_HISTORY.append(torrent_listing_info)
+                    downloadTorrent(downloadURL, listingTitle)
+                else:
+                    print(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
+                    announceDownloadings.append(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
             else:
-                print(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
-                announceDownloadings.append(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
+                print('\n >> URL FOR MATCHED TORRENT NOT FOUND, BREAKING DOWNLOAD\n')
+                found = False 
+         
     return found, announceDownloadings
 
 
@@ -217,7 +220,7 @@ def downloadTorrent(downloadURL, torrentName):
 
     with open(downloadPath, 'wb') as f:
         shutil.copyfileobj(response.raw, f)
-
+     
 
 def loadDownloadHistory():
     global DOWNLOAD_HISTORY
