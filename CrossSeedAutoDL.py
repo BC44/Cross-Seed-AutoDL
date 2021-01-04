@@ -75,10 +75,10 @@ class ReleaseData:
 
 class Searcher:
     search_url_template = Template( '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS' )
-    # max size variance (in bytes) in order to account for extra or missing files, eg. nfo files
-    size_variance = 5 * 1024**2
+    # max size difference (in bytes) in order to account for extra or missing files, eg. nfo files
+    max_size_difference = 5 * 1024**2
     # keep these keys in response json, discard the rest
-    keys_from_result = ['Tracker', 'TrackerId', 'CategoryDesc', 'Title', 'Guid', 'Link', 'Details', 'Category', 'Size', 'Imdb', 'InfoHash']
+    keys_from_result = ['Tracker', 'TrackerId', 'CategoryDesc', 'Title', 'Link', 'Details', 'Category', 'Size', 'Imdb']
 
     def __init__(self):
         self.search_results = []
@@ -108,54 +108,63 @@ class Searcher:
 
     def _get_matching_results(self, local_release_data):
         matching_results = []
+        # print(f'Parsing { len(self.search_results) } results. ', end='')
 
         for result in self.search_results:
-            # if torrent file is missing, ie. Blutopia
-            if result['Link'] is None:
-                continue
-            if abs( result['Size'] - local_release_data['size'] ) <= self.size_variance:
+            if abs( result['Size'] - local_release_data['size'] ) <= self.max_size_difference:
                 matching_results.append(result)
 
+        print(f'{ len(matching_results) } matched of { len(self.search_results) } results.')
         # debug
-        # self._save_results(local_release_data)
+        self._save_results(local_release_data)
         return matching_results
 
     def _trim_results(self):
+        url_re = r'^https?://[^/]+([^\s]+)'
+
         for i, result in enumerate(self.search_results):
-            final_result = {}
+            new_result = {}
             for key in self.keys_from_result:
-                final_result[key] = result[key]
-            self.search_results[i] = final_result
+                new_result[key] = result[key]
+            new_result['Title'] = self._reformat_release_name( new_result['Title'] )
+            self.search_results[i] = new_result
 
     # some release name results in jackett get extra data appended in square brackets
     def _reformat_release_name(self, release_name):
-        release_name_re = r'^(.+)( +\[.+\])?$'
+        release_name_re = r'^(.+?)( \[.*/.*\])?$'
         return re.search(release_name_re, release_name, re.IGNORECASE).group(1)
 
     # debug
     def _save_results(self, local_release_data):
-        search_results_final = []
-        for result in self.search_results:
-            search_results_final.apend( {**result, 'guessed_data': guessit(result['Title'])} )
+        target_dict = {'local_release_data': local_release_data, 'results': self.search_results}
+        # search_results_final = []
+        # for result in self.search_results:
+        #     search_results_final.apend( {**result, 'guessed_data': **local_release_data} )
 
         with open('results.json', 'w', encoding='utf8') as f:
-            json.dump(search_results_final, f, indent=4)
+            json.dump([target_dict], f, indent=4)
 
-        with open('local_release_data.json', 'w', encoding='utf8') as f:
-            json.dump(local_release_data, f, indent=4)
+        # with open('local_release_data.json', 'w', encoding='utf8') as f:
+        #     json.dump(local_release_data, f, indent=4)
 
 
 class Downloader:
     @staticmethod
     def download(result):
-        release_name = Downloader._sanitize_name(result['Title'])
-        file_path = os.path.join( args.SAVE_PATH, f'{release_name}.torrent' )
+        # if torrent file is missing, ie. Blutopia
+        if result['Link'] is None:
+            print( f'- Skipping release (no download link): {release_name}' )
+            return
+
+        release_name = Downloader._sanitize_name( '{} [{}]'.format( result['Title'], result['Tracker'] ) )
+        file_path = os.path.join( args.SAVE_PATH, release_name + '.torrent' )
         file_path = Downloader._validate_path(file_path)
 
-        download_url = result['Link']
-        response = requests.get(download_url, stream=True)
-        with open(file_path, 'wb') as f:
-            shutil.copyfileobj(response.raw, f)
+        print(f'- Grabbing release: {release_name}')
+
+        # response = requests.get(download_url, stream=True)
+        # with open(file_path, 'wb') as f:
+        #     shutil.copyfileobj(response.raw, f)
 
     @staticmethod
     def _sanitize_name(release_name):
@@ -179,17 +188,23 @@ def main():
     assert_settings()
     paths = [ os.path.normpath(args.INPUT_PATH)] if not args.PARSE_DIR else [os.path.join(args.INPUT_PATH, f) for f in os.listdir(args.INPUT_PATH) ]
 
-    for path in paths:
-        local_release_data = ReleaseData.get_release_data('Jr Jr Good Old Days 2020')
-        local_release_data['size'] = 5555
+    for i, path in enumerate(paths):
+        print(f'Searching for {i + 1} of { len(paths) }: { os.path.basename(path) } ', end='')
+
+        local_release_data = ReleaseData.get_release_data(path)
+        # local_release_data = ReleaseData.get_release_data('Jr Jr Good Old Days 2020')
+        # local_release_data['size'] = 5555
+
+        print( '/ {} {}'.format( local_release_data['guessed_data']['title'], local_release_data['guessed_data'].get('year', '') ) )
+
         if local_release_data['size'] is None:
             continue
         searcher = Searcher()
         matching_results = searcher.search(local_release_data)
         # debug
-        [print(f['Title']) for f in matching_results]
-        # for result in matching_results:
-        #     Downloader.download(result)
+        # [print(f['Title']) for f in matching_results]
+        for result in matching_results:
+            Downloader.download(result)
         time.sleep(args.DELAY)
     
 
