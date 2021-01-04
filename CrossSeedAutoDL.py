@@ -7,230 +7,205 @@ import re
 import requests
 import shutil
 import time
+from guessit import guessit
 from string import Template
+from urllib.parse import quote
 
 parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
-parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Indicates if input folder is the \
-                    root folder for all downloaded content (eg. your torrent client download directory)')
+parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Will parse the items inside the input directory as individual releases')
 parser.add_argument('-d', '--delay', metavar='DELAY', dest='DELAY', type=int, default=10, help='Pause duration (in seconds) between searches (default: 10)')
-parser.add_argument('-i', metavar='INPUT_PATH', dest='INPUT_PATH', type=str, required=True, help='File or Folder for which to find a matching torrent')
+parser.add_argument('-i', '--input-path', metavar='INPUT_PATH', dest='INPUT_PATH', type=str, required=True, help='File or Folder for which to find a matching torrent')
 parser.add_argument('-s', '--save-path', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
 parser.add_argument('-u', '--url', metavar='JACKETT_URL', dest='JACKETT_URL', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
 parser.add_argument('-k', '--api-key', metavar='API_KEY', dest='API_KEY', type=str, required=True, help='API key for your Jackett instance')
 parser.add_argument('-t', '--trackers', metavar='TRACKERS', dest='TRACKERS', type=str, required=True, help='Tracker(s) on which to search. Comma-separates if multiple (no spaces)')
 args = parser.parse_args()
 
-DOWNLOAD_HISTORY = []
-DOWNLOAD_HISTORY_JSON = './DownloadHistory.json'
-TITLES_NOT_FOUND_JSON = './TITLES_NOT_FOUND.json'
-LOG_FILE = './SimpleLog.log'
-
-SEARCH_URL_TEMPLATE = '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS'
-
-AKA_DUAL_LANG_NAME_RE = r'(.+?)\baka\b(.+)'
-
-TITLE_RE = r'(.+?)(\b(\d{4}|\d+p)\b|\b(season|s).?\d+)\b'
-YEAR_RE = r'.+\b((?:19|20)\d\d)\b'
-EDITION_RE = r'(tvdb.order|remaster|imax|proper|repack|internal|EXTENDED|UNRATED|DIRECTORS?|COLLECTORS?)(ed)?(.CUT)?'
-GROUP_RE = r'- ?([^\.\s]+) *(\[.+?\])? *(\.\w+)?$'
-
-OS_NAME = os.name
-
-if OS_NAME == 'nt':
+if os.name == 'nt':
     from ctypes import windll, wintypes
     FILE_ATTRIBUTE_REPARSE_POINT = 0x0400
     GetFileAttributes = windll.kernel32.GetFileAttributesW
 
 
-def main():
-    titlesNotFound = []
-    # pathListings = os.listdir(MAIN_FOLDER)
-    paths = [os.path.normpath(args.INPUT_PATH)] if not args.PARSE_DIR else [os.path.join(args.INPUT_PATH, f) for f in os.listdir(args.INPUT_PATH)]
-    finalLogStr = ''
+class ReleaseData:
+    @staticmethod
+    def get_release_data(path):
+        return {
+            'main_path': path, 
+            'basename': os.path.basename(path), 
+            'size': ReleaseData._get_total_size(path), 
+            'guessed_data': guessit( os.path.basename(path) )
+        }
 
-    loadDownloadHistory()
+    @staticmethod
+    def _get_total_size(path):
+        if os.path.isfile(path):
+            return ReleaseData._get_file_size(path)
+        elif os.path.isdir(path):
+            total_size = 0
+            for root, dirs, filenames in os.walk(path):
+                for filename in filenames:
+                    filesize = ReleaseData._get_file_size(os.path.join(root, filename))
+                    if filesize == None:
+                        return None
+                    total_size += filesize
+            return total_size
 
-    # for i, listing in enumerate(pathListings):
-    for i, path in enumerate(paths):
-        # listingPath = os.path.join(MAIN_FOLDER, listing)
-        path_basename = os.path.basename(path)
-
-        group = getGroupName(path_basename)
-        title = path_basename
-        m = re.search(TITLE_RE, title, re.IGNORECASE)
-        if m: title = m.group(1)
-
-        year = ''
-        m = re.search(YEAR_RE, path_basename)
-        if m: year = m.group(1)
-
-        title = re.sub(r'\'s\b', ' ', title, flags=re.IGNORECASE)
-        title = re.sub(r'\s+', ' ', title, flags=re.IGNORECASE)
-        title = re.sub(EDITION_RE, ' ', title, flags=re.IGNORECASE)
-        title = re.sub(r'[\W_]', ' ', title)
-
-        # print(title)
-        pathSize = get_size(path)
-        if pathSize == None:
-            continue
-
-        queries = []
-        if re.search(AKA_DUAL_LANG_NAME_RE, title, re.IGNORECASE):
-            editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\1', title, flags=re.IGNORECASE) + f' {year}'
-            queries.append(editedTitle)
-            editedTitle = re.sub(AKA_DUAL_LANG_NAME_RE, r'\2', title, flags=re.IGNORECASE) + f' {year}'
-            queries.append(editedTitle)
-        else:
-            queries.append(f'{title} {year}')
-
-        queries = [' '.join(f.split()) for f in queries]
-
-        logStr = f'\n\nSearching for {i+1} of {len(paths)}:\t{queries}\t{[path_basename, pathSize]}\n'
-        finalLogStr += logStr
-        print(logStr)
-
-        for query in queries:
-            query = '%20'.join(query.split())
-            # query = re.sub(r'\'', '%27', query)
-
-            searchURL = Template(SEARCH_URL_TEMPLATE)
-            searchURL = searchURL.substitute(JACKETT_URL=args.JACKETT_URL.strip('/'), API_KEY=args.API_KEY, SEARCH_STRING=query, TRACKERS=args.TRACKERS)
-            source = requests.get(searchURL).text
-            returnedJSON = json.loads(source)
-
-            logStr = {f['Title']:f['Size'] for f in returnedJSON['Results']}
-            finalLogStr += str(logStr) + '\n'
-            print(logStr)
-
-            found, announceDownloadings = findMatchingTorrent(returnedJSON, pathSize, path)
-            finalLogStr += '\n'.join(announceDownloadings) + '\n'
-            if found == False:
-                titlesNotFound.append(path_basename)
-
-            if i % 10 == 0 and i != 0 or i == len(paths) - 1:
-                with open(LOG_FILE, 'w', encoding='utf8') as f:
-                    f.write(finalLogStr)
-        time.sleep(args.DELAY)
-
-    with open(TITLES_NOT_FOUND_JSON, 'w', encoding='utf8') as f:
-        json.dump(titlesNotFound, f, indent=4)
-
-    with open(DOWNLOAD_HISTORY_JSON, 'w', encoding='utf8') as f:
-        json.dump(DOWNLOAD_HISTORY, f, indent=4)
-
-
-def get_size(path):
-    tempPath = path
-    if os.path.isfile(path):
-        return get_file_size(path)
-    elif os.path.isdir(path):
-        totalSize = 0
-        for root, dirs, filenames in os.walk(path):
-            for filename in filenames:
-                filesize = get_file_size(os.path.join(root, filename))
-                if filesize == None:
-                    return None
-                totalSize += filesize
-        return totalSize
-    return None
-
-def get_file_size(filepath):
-    if islink(filepath):
-        targetPath = os.readlink(filepath)
-        if os.path.isfile(targetPath):
-            return os.path.getsize(targetPath)
-    else:
-        return os.path.getsize(filepath)
-    return None
-
-
-def islink(filepath):
-    if OS_NAME == 'nt':
-        if GetFileAttributes(filepath) & FILE_ATTRIBUTE_REPARSE_POINT:
-            return True
-        else:
-            return False
-    else:
-        return os.path.islink(filepath)
-
-
-def validatePath(filepath):
-    path_filename, ext = os.path.splitext(filepath)
-    n = 1
-
-    if not os.path.isfile(filepath):
-        return filepath
-
-    filepath = f'{path_filename} ({n}){ext}'
-    while os.path.isfile(filepath):
-        n += 1
-        filepath = f'{path_filename} ({n}){ext}'
-
-    return filepath
-
-
-def getGroupName(releaseName):
-    m = re.search(GROUP_RE, releaseName)
-    if m:
-        return m.group(1)
-    return ''
-
-
-def findMatchingTorrent(returnedJSON, pathSize, listingPath):
-    MB = 1000000
-    MAX_FILESIZE_DIFFERENCE = 10 * MB
-    announceDownloadings = []
-
-    if os.path.isfile(listingPath) and pathSize < 1000 * MB:
-        MAX_FILESIZE_DIFFERENCE = 0.01 * MB
-    found = False
-    for result in returnedJSON['Results']:
-        listingTitle = result['Title']
-        downloadURL = result['Link']
-        listingSize = result['Size']
-        torrent_listing_info = f'{result["Tracker"]}/{listingTitle}'
-        # if size difference is less than the below referenced number of bytes, download torrent
-        if abs(pathSize - listingSize) <= MAX_FILESIZE_DIFFERENCE:
-            if str(downloadURL) != 'None': # if url returns None, break download
-                found = True
-                if torrent_listing_info not in DOWNLOAD_HISTORY:
-                    print('\n  >> Found possible match. Downloading\n')
-                    announceDownloadings.append('\n  >> Found possible match. Downloading\n')
-                    DOWNLOAD_HISTORY.append(torrent_listing_info)
-                    downloadTorrent(downloadURL, listingTitle)
-                else:
-                    print(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
-                    announceDownloadings.append(f'\n  !> Torrent {listingTitle} already previously downloaded\n')
+    @staticmethod
+    def _get_file_size(file_path):
+        if ReleaseData._is_link(file_path):
+            source_path = os.readlink(file_path)
+            if os.path.isfile(source_path):
+                return os.path.getsize(source_path)
             else:
-                print('\n >> URL FOR MATCHED TORRENT NOT FOUND, BREAKING DOWNLOAD\n')
-                found = False 
-         
-    return found, announceDownloadings
+                return None
+        else:
+            return os.path.getsize(file_path)
+
+    @staticmethod
+    def _is_link(file_path):
+        if os.name == 'nt':
+            if GetFileAttributes(file_path) & FILE_ATTRIBUTE_REPARSE_POINT:
+                return True
+            else:
+                return False
+        else:
+            return os.path.islink(file_path)
 
 
-def downloadTorrent(downloadURL, torrentName):
-    if OS_NAME == 'nt':
-        torrentName = re.sub(r'[<>:\"/\\?*\|]+', '', torrentName)
-    else:
-        torrentName = re.sub('/', '-', torrentName)
+class Searcher:
+    search_url_template = Template( '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS' )
+    # max size variance (in bytes) in order to account for extra or missing files, eg. nfo files
+    size_variance = 5 * 1024**2
+    # keep these keys in response json, discard the rest
+    keys_from_result = ['Tracker', 'TrackerId', 'CategoryDesc', 'Title', 'Guid', 'Link', 'Details', 'Category', 'Size', 'Imdb', 'InfoHash']
 
-    response = requests.get(downloadURL, stream=True)
-    downloadPath = os.path.join(args.SAVE_PATH, f'{torrentName}.torrent')
-    downloadPath = validatePath(downloadPath)
+    def __init__(self):
+        self.search_results = []
 
-    with open(downloadPath, 'wb') as f:
-        shutil.copyfileobj(response.raw, f)
-     
+    def search(self, local_release_data):
+        search_string = local_release_data['guessed_data']['title']
+        if local_release_data['guessed_data'].get('year', None) is not None:
+            search_string += ' {}'.format( local_release_data['guessed_data']['year'] )
 
-def loadDownloadHistory():
-    global DOWNLOAD_HISTORY
+        search_string = quote(search_string)
+        search_url = self.search_url_template.substitute(
+            JACKETT_URL=args.JACKETT_URL.strip('/'), 
+            API_KEY=args.API_KEY, 
+            SEARCH_STRING=search_string, 
+            TRACKERS=args.TRACKERS
+        )
+
+        # debug
+        # print(search_url);exit()
+        resp = requests.get(search_url)
+        # debug
+        # print( json.dumps(resp.json(), indent=4) );exit()
+        self.search_results = resp.json()['Results']
+        self._trim_results()
+
+        return self._get_matching_results(local_release_data)
+
+    def _get_matching_results(self, local_release_data):
+        matching_results = []
+
+        for result in self.search_results:
+            # if torrent file is missing, ie. Blutopia
+            if result['Link'] is None:
+                continue
+            if abs( result['Size'] - local_release_data['size'] ) <= self.size_variance:
+                matching_results.append(result)
+
+        # debug
+        # self._save_results(local_release_data)
+        return matching_results
+
+    def _trim_results(self):
+        for i, result in enumerate(self.search_results):
+            final_result = {}
+            for key in self.keys_from_result:
+                final_result[key] = result[key]
+            self.search_results[i] = final_result
+
+    # some release name results in jackett get extra data appended in square brackets
+    def _reformat_release_name(self, release_name):
+        release_name_re = r'^(.+)( +\[.+\])?$'
+        return re.search(release_name_re, release_name, re.IGNORECASE).group(1)
+
+    # debug
+    def _save_results(self, local_release_data):
+        search_results_final = []
+        for result in self.search_results:
+            search_results_final.apend( {**result, 'guessed_data': guessit(result['Title'])} )
+
+        with open('results.json', 'w', encoding='utf8') as f:
+            json.dump(search_results_final, f, indent=4)
+
+        with open('local_release_data.json', 'w', encoding='utf8') as f:
+            json.dump(local_release_data, f, indent=4)
+
+
+class Downloader:
+    @staticmethod
+    def download(result):
+        release_name = Downloader._sanitize_name(result['Title'])
+        file_path = os.path.join( args.SAVE_PATH, f'{release_name}.torrent' )
+        file_path = Downloader._validate_path(file_path)
+
+        download_url = result['Link']
+        response = requests.get(download_url, stream=True)
+        with open(file_path, 'wb') as f:
+            shutil.copyfileobj(response.raw, f)
+
+    @staticmethod
+    def _sanitize_name(release_name):
+        release_name = re.sub('/', '-', release_name)
+        release_name = re.sub(r'[^\w\-_.()\[\] ]+', '', release_name, flags=re.IGNORECASE)
+        return release_name
+
+    @staticmethod
+    def _validate_path(file_path):
+        filename, ext = os.path.splitext(file_path)
+
+        n = 1
+        while os.path.isfile(file_path):
+            n += 1
+            file_path = f'{filename} ({n}){ext}'
+
+        return file_path
+
+
+def main():
+    assert_settings()
+    paths = [ os.path.normpath(args.INPUT_PATH)] if not args.PARSE_DIR else [os.path.join(args.INPUT_PATH, f) for f in os.listdir(args.INPUT_PATH) ]
+
+    for path in paths:
+        local_release_data = ReleaseData.get_release_data('Jr Jr Good Old Days 2020')
+        local_release_data['size'] = 5555
+        if local_release_data['size'] is None:
+            continue
+        searcher = Searcher()
+        matching_results = searcher.search(local_release_data)
+        # debug
+        [print(f['Title']) for f in matching_results]
+        # for result in matching_results:
+        #     Downloader.download(result)
+        time.sleep(args.DELAY)
+    
+
+def assert_settings():
+    assert os.path.exists(args.INPUT_PATH), f'"{args.INPUT_PATH}" does not exist'
+    if args.PARSE_DIR:
+        assert os.path.isdir(args.INPUT_PATH), f'"{args.INPUT_PATH}" is not a directory. The -p/--parse-dir flag will parse the contents within the input path as individual releases'
+    assert os.path.isdir(args.SAVE_PATH), f'"{args.SAVE_PATH}" directory does not exist'
+
+    assert args.JACKETT_URL.startswith('http'), 'Error: jackett URL must start with http / https'
+
     try:
-        with open(DOWNLOAD_HISTORY_JSON, 'r', encoding='utf8') as f:
-            DOWNLOAD_HISTORY = json.load(f)
-    except Exception:
-        DOWNLOAD_HISTORY = []
+        resp = requests.head(args.JACKETT_URL)
+    except:
+        print(f'"{args.JACKETT_URL}" cannot be reached')
 
 
 if __name__ == '__main__':
     main()
-
