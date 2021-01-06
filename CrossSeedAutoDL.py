@@ -8,8 +8,7 @@ import requests
 import shutil
 import time
 from guessit import guessit
-from string import Template
-from urllib.parse import quote
+from urllib.parse import urlencode
 
 parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
 parser.add_argument('-p', '--parse-dir', dest='PARSE_DIR', action='store_true', help='Will parse the items inside the input directory as individual releases')
@@ -18,7 +17,7 @@ parser.add_argument('-i', '--input-path', metavar='INPUT_PATH', dest='INPUT_PATH
 parser.add_argument('-s', '--save-path', metavar='SAVE_PATH', dest='SAVE_PATH', type=str, required=True, help='Directory in which to store downloaded torrents')
 parser.add_argument('-u', '--url', metavar='JACKETT_URL', dest='JACKETT_URL', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
 parser.add_argument('-k', '--api-key', metavar='API_KEY', dest='API_KEY', type=str, required=True, help='API key for your Jackett instance')
-parser.add_argument('-t', '--trackers', metavar='TRACKERS', dest='TRACKERS', type=str, required=True, help='Tracker(s) on which to search. Comma-separates if multiple (no spaces)')
+parser.add_argument('-t', '--trackers', metavar='TRACKERS', dest='TRACKERS', type=str, default=None, required=False, help='Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will be searched.')
 args = parser.parse_args()
 
 if os.name == 'nt':
@@ -74,37 +73,53 @@ class ReleaseData:
 
 
 class Searcher:
-    search_url_template = Template( '$JACKETT_URL/api/v2.0/indexers/all/results?apikey=$API_KEY&Query=$SEARCH_STRING&Tracker%5B%5D=$TRACKERS' )
     # max size difference (in bytes) in order to account for extra or missing files, eg. nfo files
     max_size_difference = 5 * 1024**2
-    # keep these keys in response json, discard the rest
+    # keep these params in response json, discard the rest
     keys_from_result = ['Tracker', 'TrackerId', 'CategoryDesc', 'Title', 'Link', 'Details', 'Category', 'Size', 'Imdb']
+    category_types = {'movie': 2000, 'episode': 5000}
 
     def __init__(self):
         self.search_results = []
 
     def search(self, local_release_data):
-        search_string = local_release_data['guessed_data']['title']
+        search_query = local_release_data['guessed_data']['title']
         if local_release_data['guessed_data'].get('year', None) is not None:
-            search_string += ' {}'.format( local_release_data['guessed_data']['year'] )
+            search_query += ' ' + str( local_release_data['guessed_data']['year'] )
 
-        search_string = quote(search_string)
-        search_url = self.search_url_template.substitute(
-            JACKETT_URL=args.JACKETT_URL.strip('/'), 
-            API_KEY=args.API_KEY, 
-            SEARCH_STRING=search_string, 
-            TRACKERS=args.TRACKERS
-        )
+        search_url = self._get_full_search_url(search_query, local_release_data)
 
         # debug
         # print(search_url);exit()
-        resp = requests.get(search_url)
+        resp = requests.get(search_url, local_release_data)
         # debug
         # print( json.dumps(resp.json(), indent=4) );exit()
         self.search_results = resp.json()['Results']
         self._trim_results()
 
         return self._get_matching_results(local_release_data)
+
+    @staticmethod
+    def _get_full_search_url(search_query, local_release_data):
+        base_url = args.JACKETT_URL.strip('/') + '/api/v2.0/indexers/all/results?'
+
+        main_params = {
+            'apikey': args.API_KEY, 
+            'Query': search_query
+        }
+
+        optional_params = {
+            'Tracker[]': args.TRACKERS, 
+            'Category[]': Searcher.category_types[ local_release_data['guessed_data']['type'] ], 
+            'season': local_release_data['guessed_data'].get('season', None), 
+            'episode': local_release_data['guessed_data'].get('episode', None)
+        }
+
+        for param, arg in optional_params.items():
+            if arg is not None:
+                main_params[param] = arg
+
+        return base_url + urlencode(main_params)
 
     def _get_matching_results(self, local_release_data):
         matching_results = []
@@ -162,9 +177,9 @@ class Downloader:
 
         print(f'- Grabbing release: {release_name}')
 
-        # response = requests.get(download_url, stream=True)
-        # with open(file_path, 'wb') as f:
-        #     shutil.copyfileobj(response.raw, f)
+        response = requests.get(result['Link'], stream=True)
+        with open(file_path, 'wb') as f:
+            shutil.copyfileobj(response.raw, f)
 
     @staticmethod
     def _sanitize_name(release_name):
@@ -205,6 +220,7 @@ def main():
         # [print(f['Title']) for f in matching_results]
         for result in matching_results:
             Downloader.download(result)
+        print('')
         time.sleep(args.DELAY)
     
 
