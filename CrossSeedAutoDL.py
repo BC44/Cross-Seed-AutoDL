@@ -98,8 +98,8 @@ class Searcher:
         if not ARGS.ignore_history:
             if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history )\
                     and ARGS.parse_dir:
-                print('Skipping search. File previously searched.')
-                logger.info('Skipping search. File previously searched.')
+                print( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
+                logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
                 return []
 
         search_query = local_release_data['guessed_data']['title']
@@ -115,7 +115,7 @@ class Searcher:
         try:
             resp_json = resp.json()
         except json.decoder.JSONDecodeError as e:
-            logger.info(f'Response text: {resp.text}')
+            logger.info(f'Json decode Error. Response text: {resp.text}')
             logger.exception(e)
             return []
 
@@ -191,7 +191,7 @@ class Downloader:
 
     @staticmethod
     def download(result, search_history):
-        release_name = Downloader._sanitize_name( '{} [{}]'.format( result['Title'], result['Tracker'] ) )
+        release_name = Downloader._sanitize_name( '{Title} [{Tracker}]'.format( **result ) )
 
         # if torrent file is missing, ie. Blutopia
         if result['Link'] is None:
