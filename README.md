@@ -18,24 +18,28 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 # Usage
 
-	usage: CrossSeedAutoDL.py [-h] [-p] [-d DELAY] -i INPUT_PATH -s SAVE_PATH -u JACKETT_URL -k API_KEY -t TRACKERS
+	usage: CrossSeedAutoDL.py [-h] [-p] [-d delay] -i input_path -s save_path -u jackett_url -k api_key [-t trackers]
+	                          [--ignore-history]
 
 	Searches for cross-seedable torrents
 
 	optional arguments:
 	  -h, --help            show this help message and exit
-	  -p, --parse-dir       Indicates if input folder is the root folder for multiple downloaded content (eg. your torrent
-	                        client download directory)
-      -d DELAY, --delay DELAY
-                        Pause duration (in seconds) between searches (default: 10)
-	  -i INPUT_PATH         File or Folder for which to find a matching torrent
-	  -s SAVE_PATH          Directory in which to store downloaded torrents
-	  -u JACKETT_URL, --url JACKETT_URL
+	  -p, --parse-dir       Optional. Indicates whether to parse the items inside the input directory as individual releases
+	  -d delay, --delay delay
+	                        Pause duration (in seconds) between searches (default: 10)
+	  -i input_path, --input-path input_path
+	                        File or Folder for which to find a matching torrent
+	  -s save_path, --save-path save_path
+	                        Directory in which to store downloaded torrents
+	  -u jackett_url, --url jackett_url
 	                        URL for your Jackett instance, including port number if needed
-	  -k API_KEY, --api-key API_KEY
+	  -k api_key, --api-key api_key
 	                        API key for your Jackett instance
-	  -t TRACKERS, --trackers TRACKERS
-	                        Tracker(s) on which to search. Comma-separated if multiple (no spaces)
+	  -t trackers, --trackers trackers
+	                        Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will
+	                        be searched.
+	  --ignore-history      Optional. Indicates whether to ignore history file when conducting searches (for re-downloads)
 
 Examples:
 
