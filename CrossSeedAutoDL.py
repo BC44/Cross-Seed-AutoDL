@@ -149,11 +149,17 @@ class Searcher:
         return base_url + urlencode(main_params)
 
     def _get_matching_results(self, local_release_data):
+        max_size_difference = Searcher.max_size_difference
+
         matching_results = []
         # print(f'Parsing { len(self.search_results) } results. ', end='')
 
         for result in self.search_results:
-            if abs( result['Size'] - local_release_data['size'] ) <= self.max_size_difference:
+            # older torrents' sizes in blutopia are are slightly off
+            if result['Tracker'] == 'Blutopia':
+                max_size_difference = self.max_size_difference * 2
+
+            if abs( result['Size'] - local_release_data['size'] ) <= max_size_difference:
                 matching_results.append(result)
 
         print(f'{ len(matching_results) } matched of { len(self.search_results) } results.')
