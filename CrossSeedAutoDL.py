@@ -120,7 +120,9 @@ class Searcher:
             logger.exception(e)
             return []
 
-        search_history['basenames_searched'].append(local_release_data['basename'])
+        # append basename to history
+        if local_release_data['basename'] not in search_history['basenames_searched']:
+            search_history['basenames_searched'].append(local_release_data['basename'])
 
         self.search_results = self._trim_results( resp_json['Results'] )
         return self._get_matching_results(local_release_data)
@@ -286,7 +288,9 @@ class HistoryManager:
         if search_history['download_history'].get(tracker_id, None) is None:
             search_history['download_history'][tracker_id] = []
 
-        search_history['download_history'][tracker_id].append(url_path)
+        # to prevent duplicates, in case --ignore-history flag is enabled
+        if url_path not in search_history['download_history'][tracker_id]:
+            search_history['download_history'][tracker_id].append(url_path)
 
 
 def main():
