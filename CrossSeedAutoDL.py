@@ -115,6 +115,7 @@ class Searcher:
         try:
             resp_json = resp.json()
         except json.decoder.JSONDecodeError as e:
+            print('Json decode error. Incident logged')
             logger.info(f'Json decode Error. Response text: {resp.text}')
             logger.exception(e)
             return []
