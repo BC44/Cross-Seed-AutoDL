@@ -18,28 +18,37 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 # Usage
 
-	usage: CrossSeedAutoDL.py [-h] [-p] [-d delay] -i input_path -s save_path -u jackett_url -k api_key [-t trackers]
-	                          [--ignore-history]
+	usage: CrossSeedAutoDL.py [-h] [-p] [-d delay] -i input_path -s save_path -u
+	                          jackett_url -k api_key [-t trackers]
+	                          [--ignore-history] [--strict-size]
 
 	Searches for cross-seedable torrents
 
 	optional arguments:
 	  -h, --help            show this help message and exit
-	  -p, --parse-dir       Optional. Indicates whether to parse the items inside the input directory as individual releases
+	  -p, --parse-dir       Optional. Indicates whether to parse the items inside
+	                        the input directory as individual releases
 	  -d delay, --delay delay
-	                        Pause duration (in seconds) between searches (default: 10)
+	                        Pause duration (in seconds) between searches (default:
+	                        10)
 	  -i input_path, --input-path input_path
 	                        File or Folder for which to find a matching torrent
 	  -s save_path, --save-path save_path
 	                        Directory in which to store downloaded torrents
 	  -u jackett_url, --url jackett_url
-	                        URL for your Jackett instance, including port number if needed
+	                        URL for your Jackett instance, including port number
+	                        if needed
 	  -k api_key, --api-key api_key
 	                        API key for your Jackett instance
 	  -t trackers, --trackers trackers
-	                        Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will
+	                        Tracker(s) on which to search. Comma-separated if
+	                        multiple (no spaces). If ommitted, all trackers will
 	                        be searched.
-	  --ignore-history      Optional. Indicates whether to ignore history file when conducting searches (for re-downloads)
+	  --ignore-history      Optional. Indicates whether to ignore history file
+	                        when conducting searches.
+	  --strict-size         Optional. Indicates whether to match torrent search
+	                        result sizes to exactly the size of the input path.
+
 
 Examples:
 
