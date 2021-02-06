@@ -100,12 +100,8 @@ class Searcher:
         self.search_results = []
 
     def search(self, local_release_data, search_history):
-        if not ARGS.ignore_history:
-            if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history )\
-                    and ARGS.parse_dir:
-                print( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
-                logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
-                return []
+        if self._is_skip_worthy(local_release_data, search_history):
+            return []
 
         search_query = local_release_data['guessed_data']['title']
         if local_release_data['guessed_data'].get('year') is not None:
@@ -186,9 +182,26 @@ class Searcher:
 
     # some titles in jackett search results get extra data appended in square brackets,
     # ie. 'Movie.Name.720p.x264 [Golden Popcorn / 720p / x264]'
-    def _reformat_release_name(self, release_name):
+    @staticmethod
+    def _reformat_release_name(release_name):
         release_name_re = r'^(.+?)( \[.*/.*\])?$'
         return re.search(release_name_re, release_name, re.IGNORECASE).group(1)
+
+    @staticmethod
+    def _is_skip_worthy(local_release_data, search_history):
+        if not ARGS.ignore_history:
+            if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history )\
+                    and ARGS.parse_dir:
+                print( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
+                logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
+                return True
+
+        if local_release_data['size'] is None:
+            print('Skipping. Could not get proper filesize data')
+            logger.info('Skipping. Could not get proper filesize data')
+            return True
+
+        return False
 
     ###
     # def _save_results(self, local_release_data):
@@ -305,10 +318,10 @@ def main():
 
     for i, path in enumerate(paths):
         local_release_data = ReleaseData.get_release_data(path)
-        
+
         if local_release_data['guessed_data'].get('title') is None:
-            print( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
-            logger.info( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
+            print( 'Skipping file. Could not get title from filename: {}'.format(local_release_data['basename']) )
+            logger.info( 'Skipping file. Could not get title from filename: {}'.format(local_release_data['basename']) )
             continue
 
         info = 'Searching for {num} of {size}: {basename} / {title} {year}'.format(
@@ -320,11 +333,6 @@ def main():
             )
         print(info)
         logger.info(info)
-
-        if local_release_data['size'] is None:
-            print('Skipping. Could not get proper filesize data')
-            logger.info('Skipping. Could not get proper filesize data')
-            continue
 
         searcher = Searcher()
         matching_results = searcher.search(local_release_data, search_history)
