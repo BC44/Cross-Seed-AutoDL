@@ -107,6 +107,11 @@ class Searcher:
                 logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
                 return []
 
+        if local_release_data['guessed_data'].get('title', None) is None:
+            print( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
+            logger.info( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
+            return []
+
         search_query = local_release_data['guessed_data']['title']
         if local_release_data['guessed_data'].get('year', None) is not None:
             search_query += ' ' + str( local_release_data['guessed_data']['year'] )
@@ -184,7 +189,8 @@ class Searcher:
             trimmed_results.append(new_result)
         return trimmed_results
 
-    # some release name results in jackett get extra data appended in square brackets
+    # some titles in jackett search results get extra data appended in square brackets,
+    # ie. 'Movie.Name.720p.x264 [Golden Popcorn / 720p / x264]'
     def _reformat_release_name(self, release_name):
         release_name_re = r'^(.+?)( \[.*/.*\])?$'
         return re.search(release_name_re, release_name, re.IGNORECASE).group(1)
@@ -201,7 +207,6 @@ class Searcher:
 class Downloader:
     # for the purpose of trimming a 'Description' URL down to its path only. Some trackers might have multiple proxies
     # ie. http://tracker.url1.net/details?9012 != http://tracker.url2.com/details?9012, but their path remain the same: /details?9012
-
     @staticmethod
     def download(result, search_history):
         release_name = Downloader._sanitize_name( '{Title} [{Tracker}]'.format( **result ) )
@@ -329,7 +334,8 @@ def main():
         for result in matching_results:
             Downloader.download(result, search_history)
 
-        time.sleep(ARGS.delay)
+        if matching_results:
+            time.sleep(ARGS.delay)
 
     # write back to download history file
     with open(HistoryManager.search_history_file_path, 'w', encoding='utf8') as f:
