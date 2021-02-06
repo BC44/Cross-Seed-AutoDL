@@ -107,13 +107,8 @@ class Searcher:
                 logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
                 return []
 
-        if local_release_data['guessed_data'].get('title', None) is None:
-            print( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
-            logger.info( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
-            return []
-
         search_query = local_release_data['guessed_data']['title']
-        if local_release_data['guessed_data'].get('year', None) is not None:
+        if local_release_data['guessed_data'].get('year') is not None:
             search_query += ' ' + str( local_release_data['guessed_data']['year'] )
 
         search_url = self._get_full_search_url(search_query, local_release_data)
@@ -150,8 +145,8 @@ class Searcher:
         optional_params = {
             'Tracker[]': ARGS.trackers, 
             'Category[]': Searcher.category_types[ local_release_data['guessed_data']['type'] ], 
-            'season': local_release_data['guessed_data'].get('season', None), 
-            'episode': local_release_data['guessed_data'].get('episode', None)
+            'season': local_release_data['guessed_data'].get('season'),
+            'episode': local_release_data['guessed_data'].get('episode')
         }
 
         for param, arg in optional_params.items():
@@ -282,7 +277,7 @@ class HistoryManager:
         url_path = re.search( HistoryManager.url_path_re, result['Details'] ).group(1)
         tracker_id = result['TrackerId']
 
-        if search_history['download_history'].get( tracker_id, None ) is None:
+        if search_history['download_history'].get(tracker_id) is None:
             return False
 
         for download_history_url_path in search_history['download_history'][tracker_id]:
@@ -294,7 +289,7 @@ class HistoryManager:
     def append_to_download_history(details_url, tracker_id, search_history):
         url_path = re.search(HistoryManager.url_path_re, details_url).group(1)
 
-        if search_history['download_history'].get(tracker_id, None) is None:
+        if search_history['download_history'].get(tracker_id) is None:
             search_history['download_history'][tracker_id] = []
 
         # to prevent duplicates, in case --ignore-history flag is enabled
@@ -310,6 +305,11 @@ def main():
 
     for i, path in enumerate(paths):
         local_release_data = ReleaseData.get_release_data(path)
+        
+        if local_release_data['guessed_data'].get('title') is None:
+            print( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
+            logger.info( 'Could not get title from filename: {}'.format(local_release_data['basename']) )
+            continue
 
         info = 'Searching for {num} of {size}: {basename} / {title} {year}'.format(
             num=i + 1,
