@@ -121,6 +121,13 @@ class Searcher:
             logger.exception(e)
             return []
 
+        if resp_json['Indexers'] == []:
+            info = 'No results found due to incorrectly input indexer names ({}). Check ' \
+                   'your spelling/capitalization (are they added to Jackett?). Script has exited'.format(ARGS.trackers)
+            print(info)
+            logger.info(info)
+            exit()
+
         # append basename to history
         if local_release_data['basename'] not in search_history['basenames_searched']:
             search_history['basenames_searched'].append(local_release_data['basename'])
