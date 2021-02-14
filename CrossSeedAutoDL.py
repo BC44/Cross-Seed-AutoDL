@@ -342,8 +342,7 @@ def main():
         for result in matching_results:
             Downloader.download(result, search_history)
 
-        if matching_results:
-            time.sleep(ARGS.delay)
+        time.sleep(ARGS.delay)
 
     # write back to download history file
     with open(HistoryManager.search_history_file_path, 'w', encoding='utf8') as f:
