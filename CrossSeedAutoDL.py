@@ -23,6 +23,8 @@ parser.add_argument('--ignore-history', dest='ignore_history', action='store_tru
 parser.add_argument('--strict-size', dest='strict_size', action='store_true', help='Optional. Indicates whether to match torrent search result sizes to exactly the size of the input path.')
 ARGS = parser.parse_args()
 
+ARGS.input_path = os.path.expanduser(ARGS.input_path)
+
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
@@ -319,7 +321,8 @@ class HistoryManager:
 
 def main():
     assert_settings()
-    paths = [ os.path.normpath(ARGS.input_path)] if not ARGS.parse_dir else [os.path.join(ARGS.input_path, f) for f in os.listdir(ARGS.input_path) ]
+    paths = [ os.path.normpath(ARGS.input_path)] if not ARGS.parse_dir \
+        else [os.path.join(ARGS.input_path, f) for f in os.listdir(ARGS.input_path) ]
 
     search_history = HistoryManager.get_download_history()
 
@@ -342,7 +345,6 @@ def main():
 
         searcher = Searcher()
         matching_results = searcher.search(local_release_data, search_history)
-
         ###
         # [print(f['Title']) for f in matching_results]
         for result in matching_results:
