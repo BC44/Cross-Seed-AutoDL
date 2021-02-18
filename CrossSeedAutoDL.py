@@ -44,7 +44,7 @@ class ReleaseData:
         return {
             'main_path': path, 
             'basename': os.path.basename(path), 
-            'size': ReleaseData._get_total_size(path), 
+            'size': ReleaseData._get_total_size(path),
             'guessed_data': guessit( os.path.basename(path) )
         }
 
@@ -331,15 +331,14 @@ def main():
             logger.info( 'Skipping file. Could not get title from filename: {}'.format(local_release_data['basename']) )
             continue
 
-        info = 'Searching for {num} of {size}: {basename} / {title} {year}'.format(
+        info = 'Searching for {num} of {size}: {title} {year}'.format(
             num=i + 1,
-            size=len(paths), 
-            basename=os.path.basename(path), 
+            size=len(paths),
             title=local_release_data['guessed_data']['title'], 
             year=local_release_data['guessed_data'].get('year', '')
             )
         print(info)
-        logger.info(info)
+        logger.info(info + f'/ {os.path.basename(path)}')
 
         searcher = Searcher()
         matching_results = searcher.search(local_release_data, search_history)
