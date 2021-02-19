@@ -26,7 +26,7 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 	optional arguments:
 	  -h, --help            show this help message and exit
-	  -p, --parse-dir       Optional. Indicates whether to parse the items inside
+	  -p, --parse-dir       Optional. Indicates whether to search for the items inside
 	                        the input directory as individual releases
 	  -d delay, --delay delay
 	                        Pause duration (in seconds) between searches (default:
@@ -52,14 +52,16 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 
 Examples:
 
-Search for all items under a directory containing multiple downloaded content (include `-p` flag):
+If you're on Windows, use `py` like indicated below, otherwise replace `py` with `python3` if you're on Linux/Mac.
+
+(include `-p` flag) Conducts multiple searches: Runs a search for each of the input directory's child items. ie. If input path is a season pack that contains 10 files, a search will be conducted for each file (10 total searches)
 
 	py CrossSeedAutoDL.py -p -i "D:\TorrentClientDownloadDir\complete" -s "D:\DownloadedTorrents" -u "http://127.0.0.1:9117" -k "cb42579eyh4j11ht5sktjswq89t89q5t" -t blutopia
 
-Search for a single item, a video file (omit `-p` flag)
+Search for a single item (singular search), a video file (omit `-p` flag)
 
 	py CrossSeedAutoDL.py -i "D:\TorrentClientDownloadDir\complete\My.Movie.2010.720p.mkv" -s "D:\DownloadedTorrents" -u "http://127.0.0.1:9117" -k "cb42579eyh4j11ht5sktjswq89t89q5t" -t blutopia,passthepopcorn
 
-Search for a single item, a season pack (omit `-p` flag)
+Search for a single item (singular search), a season pack (omit `-p` flag)
 
 	py CrossSeedAutoDL.py -i "D:\TorrentClientDownloadDir\complete\My.Show.Season.06.Complete" -s "D:\DownloadedTorrents" -u "http://127.0.0.1:9117" -k "cb42579eyh4j11ht5sktjswq89t89q5t" -t blutopia,broadcasthenet,morethantv
