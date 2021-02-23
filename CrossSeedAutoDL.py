@@ -12,7 +12,7 @@ from guessit import guessit
 from urllib.parse import urlencode
 
 parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
-parser.add_argument('-p', '--parse-dir', dest='parse_dir', action='store_true', help='Optional. Indicates whether to parse the items inside the input directory as individual releases')
+parser.add_argument('-p', '--parse-dir', dest='parse_dir', action='store_true', help='Optional. Indicates whether to search for all the items inside the input directory as individual releases')
 parser.add_argument('-d', '--delay', metavar='delay', dest='delay', type=int, default=10, help='Pause duration (in seconds) between searches (default: 10)')
 parser.add_argument('-i', '--input-path', metavar='input_path', dest='input_path', type=str, required=True, help='File or Folder for which to find a matching torrent')
 parser.add_argument('-s', '--save-path', metavar='save_path', dest='save_path', type=str, required=True, help='Directory in which to store downloaded torrents')
@@ -125,10 +125,10 @@ class Searcher:
 
         if resp_json['Indexers'] == []:
             info = 'No results found due to incorrectly input indexer names ({}). Check ' \
-                   'your spelling/capitalization (are they added to Jackett?). Script has exited'.format(ARGS.trackers)
+                   'your spelling/capitalization (are they added to Jackett?). This script has exited'.format(ARGS.trackers)
             print(info)
             logger.info(info)
-            exit()
+            exit(1)
 
         # append basename to history
         if local_release_data['basename'] not in search_history['basenames_searched']:
@@ -178,6 +178,7 @@ class Searcher:
 
         return matching_results
 
+    # remove unnecessary values from results json
     def _trim_results(self, search_results):
         trimmed_results = []
 
@@ -194,10 +195,17 @@ class Searcher:
     @staticmethod
     def _reformat_release_name(release_name):
         release_name_re = r'^(.+?)( \[.*/.*\])?$'
-        return re.search(release_name_re, release_name, re.IGNORECASE).group(1)
+
+        match = re.search(release_name_re, release_name, re.IGNORECASE)
+        if match:
+            return match.group(1)
+
+        log.info(f'"{release_name}" name could not be trimmed down')
+        return release_name
 
     @staticmethod
     def _is_skip_worthy(local_release_data, search_history):
+        # if --parse-dir omitted, search anyway. Download history will still be adhered to
         if not ARGS.ignore_history:
             if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history )\
                     and ARGS.parse_dir:
@@ -363,12 +371,13 @@ def assert_settings():
         assert os.path.isdir(ARGS.input_path), f'"{ARGS.input_path}" is not a directory. The -p/--parse-dir flag will parse the contents within the input path as individual releases'
     assert os.path.isdir(ARGS.save_path), f'"{ARGS.save_path}" directory does not exist'
 
-    assert ARGS.jackett_url.startswith('http'), 'Error: jackett URL must start with http / https'
+    assert ARGS.jackett_url.startswith('http'), 'Error: Jackett URL must start with http / https'
 
     try:
         resp = requests.head(ARGS.jackett_url)
     except:
         print(f'"{ARGS.jackett_url}" cannot be reached')
+        exit()
 
 
 if __name__ == '__main__':
