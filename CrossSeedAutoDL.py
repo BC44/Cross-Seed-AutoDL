@@ -59,7 +59,7 @@ class ReleaseData:
             for root, dirs, filenames in os.walk(path):
                 for filename in filenames:
                     filesize = ReleaseData._get_file_size(os.path.join(root, filename))
-                    if filesize == None:
+                    if filesize is None:
                         return None
                     total_size += filesize
             return total_size
@@ -200,7 +200,7 @@ class Searcher:
         if match:
             return match.group(1)
 
-        log.info(f'"{release_name}" name could not be trimmed down')
+        logger.info(f'"{release_name}" name could not be trimmed down')
         return release_name
 
     @staticmethod
