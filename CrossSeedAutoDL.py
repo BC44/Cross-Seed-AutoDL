@@ -20,7 +20,7 @@ parser.add_argument('-u', '--url', metavar='jackett_url', dest='jackett_url', ty
 parser.add_argument('-k', '--api-key', metavar='api_key', dest='api_key', type=str, required=True, help='API key for your Jackett instance')
 parser.add_argument('-t', '--trackers', metavar='trackers', dest='trackers', type=str, default=None, required=False, help='Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will be searched.')
 parser.add_argument('--ignore-history', dest='ignore_history', action='store_true', help='Optional. Indicates whether to ignore history file when conducting searches.')
-parser.add_argument('--strict-size', dest='strict_size', action='store_true', help='Optional. Indicates whether to match torrent search result sizes to exactly the size of the input path.')
+parser.add_argument('--strict-size', dest='strict_size', action='store_true', help='Optional. Indicates whether to match torrent search result sizes to exactly the size of the input path. Might miss otherwise cross-seedtable torrents that contain additional files such as .nfo files')
 ARGS = parser.parse_args()
 
 ARGS.input_path = os.path.expanduser(ARGS.input_path)
@@ -112,7 +112,19 @@ class Searcher:
         search_url = self._get_full_search_url(search_query, local_release_data)
         logger.info(search_url)
 
-        resp = requests.get(search_url, local_release_data)
+        for n in range(2):
+            try:
+                resp = requests.get(search_url, local_release_data)
+                break
+            except requests.exceptions.ReadTimeout:
+                if n == 0:
+                    print(f'Connection timed out. Retrying once more.')
+                    time.sleep(ARGS.delay)
+            except requests.exceptions.ConnectionError:
+                if n == 1:
+                    print(f'Connection failed. Retrying once more.')
+                    time.sleep(ARGS.delay)
+
         ###
         # self._save_results(local_release_data); exit()
         try:
@@ -375,8 +387,8 @@ def assert_settings():
 
     try:
         resp = requests.head(ARGS.jackett_url)
-    except:
-        print(f'"{ARGS.jackett_url}" cannot be reached')
+    except requests.exceptions.RequestException as e:
+        print(f'"{ARGS.jackett_url}" cannot be reached: {e}')
         exit()
 
 
