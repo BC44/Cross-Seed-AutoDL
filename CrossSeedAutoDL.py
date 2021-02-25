@@ -121,7 +121,7 @@ class Searcher:
                     print(f'Connection timed out. Retrying once more.')
                     time.sleep(ARGS.delay)
             except requests.exceptions.ConnectionError:
-                if n == 1:
+                if n == 0:
                     print(f'Connection failed. Retrying once more.')
                     time.sleep(ARGS.delay)
 
