@@ -112,6 +112,7 @@ class Searcher:
         search_url = self._get_full_search_url(search_query, local_release_data)
         logger.info(search_url)
 
+        resp = None
         for n in range(2):
             try:
                 resp = requests.get(search_url, local_release_data)
@@ -125,6 +126,8 @@ class Searcher:
                     print(f'Connection failed. Retrying once more.')
                     time.sleep(ARGS.delay)
 
+        if not resp:
+            return []
         ###
         # self._save_results(local_release_data); exit()
         try:
