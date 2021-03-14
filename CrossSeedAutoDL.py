@@ -344,8 +344,7 @@ class HistoryManager:
 
 def main():
     assert_settings()
-    paths = [ os.path.normpath(ARGS.input_path)] if not ARGS.parse_dir \
-        else [os.path.join(ARGS.input_path, f) for f in os.listdir(ARGS.input_path) ]
+    paths = get_all_paths()
 
     search_history = HistoryManager.get_download_history()
 
@@ -378,12 +377,24 @@ def main():
     # write back to download history file
     with open(HistoryManager.search_history_file_path, 'w', encoding='utf8') as f:
         json.dump(search_history, f, indent=4)
-    
+
+
+def get_all_paths():
+    paths = [ os.path.normpath(ARGS.input_path)] if not ARGS.parse_dir \
+        else [os.path.join(ARGS.input_path, f) for f in os.listdir(ARGS.input_path) ]
+
+    if os.name == 'nt':
+        for i, _ in enumerate(paths):
+            if os.path.isabs(paths[i]) and not paths[i].startswith('\\\\?\\'):
+                paths[i] = '\\\\?\\' + paths[i]
+
+    return paths
+
 
 def assert_settings():
     assert os.path.exists(ARGS.input_path), f'"{ARGS.input_path}" does not exist'
     if ARGS.parse_dir:
-        assert os.path.isdir(ARGS.input_path), f'"{ARGS.input_path}" is not a directory. The -p/--parse-dir flag will parse the contents within the input path as individual releases'
+        assert os.path.isdir(ARGS.input_path), f'You used the -p/--parse-dir flag but "{ARGS.input_path}" is not a directory. The -p/--parse-dir flag will parse the contents within the input path as individual releases'
     assert os.path.isdir(ARGS.save_path), f'"{ARGS.save_path}" directory does not exist'
 
     assert ARGS.jackett_url.startswith('http'), 'Error: Jackett URL must start with http / https'
