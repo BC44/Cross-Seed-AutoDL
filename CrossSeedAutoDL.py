@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
 
 formatter = logging.Formatter('\n%(asctime)s - Module: %(module)s - Line: %(lineno)d - Message: %(message)s')
-file_handler = logging.FileHandler('CrossSeedAutoDL.log')
+file_handler = logging.FileHandler('CrossSeedAutoDL.log', encoding='utf8')
 file_handler.setFormatter(formatter)
 
 logger.addHandler(file_handler)
