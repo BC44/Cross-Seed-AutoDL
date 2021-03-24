@@ -102,7 +102,9 @@ class Searcher:
         self.search_results = []
 
     def search(self, local_release_data, search_history):
-        if self._is_skip_worthy(local_release_data, search_history):
+        if local_release_data['size'] is None:
+            print('Skipping. Could not get proper filesize data')
+            logger.info('Skipping. Could not get proper filesize data')
             return []
 
         search_query = local_release_data['guessed_data']['title']
@@ -218,23 +220,6 @@ class Searcher:
         logger.info(f'"{release_name}" name could not be trimmed down')
         return release_name
 
-    @staticmethod
-    def _is_skip_worthy(local_release_data, search_history):
-        # if --parse-dir omitted, search anyway. Download history will still be adhered to
-        if not ARGS.ignore_history:
-            if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history )\
-                    and ARGS.parse_dir:
-                print( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
-                logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
-                return True
-
-        if local_release_data['size'] is None:
-            print('Skipping. Could not get proper filesize data')
-            logger.info('Skipping. Could not get proper filesize data')
-            return True
-
-        return False
-
     ###
     # def _save_results(self, local_release_data):
     #     search_results_path = os.path.join( os.path.dirname(os.path.abspath(__file__)), 'search_results.json' )
@@ -262,7 +247,7 @@ class Downloader:
                 logger.info( f'- Skipping download (previously grabbed): {release_name}' )
                 return
 
-        file_path = os.path.join( ARGS.save_path, release_name + '.torrent' )
+        file_path = os.path.join(ARGS.save_path, release_name + '.torrent')
         file_path = Downloader._validate_path(file_path)
 
         print(f'- Grabbing release: {release_name}')
@@ -347,6 +332,7 @@ def main():
     paths = get_all_paths()
 
     search_history = HistoryManager.get_download_history()
+    history_json_fd = open(HistoryManager.search_history_file_path, 'w', encoding='utf8')
 
     for i, path in enumerate(paths):
         local_release_data = ReleaseData.get_release_data(path)
@@ -365,6 +351,14 @@ def main():
         print(info)
         logger.info(info + f'/ {os.path.basename(path)}')
 
+        # check if file has previously been searched
+        # if --parse-dir is ommited, file name will be searched regardless
+        if not ARGS.ignore_history and ARGS.parse_dir:
+            if HistoryManager.is_file_previously_searched( local_release_data['basename'], search_history ):
+                print( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
+                logger.info( 'Skipping search. File previously searched: {basename}'.format(**local_release_data) )
+                continue
+
         searcher = Searcher()
         matching_results = searcher.search(local_release_data, search_history)
         ###
@@ -372,11 +366,14 @@ def main():
         for result in matching_results:
             Downloader.download(result, search_history)
 
+        json.dump(search_history, history_json_fd, indent=4)
+        history_json_fd.seek(0)
         time.sleep(ARGS.delay)
 
     # write back to download history file
-    with open(HistoryManager.search_history_file_path, 'w', encoding='utf8') as f:
-        json.dump(search_history, f, indent=4)
+    # with open(HistoryManager.search_history_file_path, 'w', encoding='utf8') as f:
+    #     json.dump(search_history, f, indent=4)
+    history_json_fd.close()
 
 
 def get_all_paths():
