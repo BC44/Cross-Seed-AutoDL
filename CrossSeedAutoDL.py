@@ -247,7 +247,8 @@ class Downloader:
                 logger.info( f'- Skipping download (previously grabbed): {release_name}' )
                 return
 
-        file_path = os.path.join(ARGS.save_path, release_name + '.torrent')
+        new_name = Downloader._get_new_name(release_name)
+        file_path = os.path.join(ARGS.save_path, new_name + '.torrent')
         file_path = Downloader._validate_path(file_path)
 
         print(f'- Grabbing release: {release_name}')
@@ -264,6 +265,22 @@ class Downloader:
         release_name = release_name.replace('/', '-')
         release_name = re.sub(r'[^\w\-_.()\[\] ]+', '', release_name, flags=re.IGNORECASE)
         return release_name
+
+    @staticmethod
+    def _get_new_name(release_name):
+        # 255 length with space for '.torrent' file extension and nul terminator
+        max_length = 254 - len('.torrent')
+        new_name = release_name[:max_length]
+
+        if os.name == 'nt':
+            return new_name
+
+        max_bytes = max_length
+        while len(new_name.encode('utf8')) > max_bytes:
+            max_length -= 1
+            new_name = new_name[:max_length]
+
+        return new_name
 
     @staticmethod
     def _validate_path(file_path):
@@ -332,7 +349,7 @@ def main():
     paths = get_all_paths()
 
     search_history = HistoryManager.get_download_history()
-    history_json_fd = open(HistoryManager.search_history_file_path, 'w', encoding='utf8')
+    history_json_fd = open(HistoryManager.search_history_file_path, 'r+', encoding='utf8')
 
     for i, path in enumerate(paths):
         local_release_data = ReleaseData.get_release_data(path)
