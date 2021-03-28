@@ -234,7 +234,7 @@ class Downloader:
     # ie. http://tracker.url1.net/details?9012 != http://tracker.url2.com/details?9012, but their path remain the same: /details?9012
     @staticmethod
     def download(result, search_history):
-        release_name = Downloader._sanitize_name( '{Title} [{Tracker}]'.format( **result ) )
+        release_name = Downloader._sanitize_name( '[{Tracker}] {Title}'.format( **result ) )
 
         # if torrent file is missing, ie. Blutopia
         if result['Link'] is None:
@@ -247,7 +247,7 @@ class Downloader:
                 logger.info( f'- Skipping download (previously grabbed): {release_name}' )
                 return
 
-        new_name = Downloader._get_new_name(release_name)
+        new_name = Downloader._truncate_name(release_name)
         file_path = os.path.join(ARGS.save_path, new_name + '.torrent')
         file_path = Downloader._validate_path(file_path)
 
@@ -267,7 +267,12 @@ class Downloader:
         return release_name
 
     @staticmethod
-    def _get_new_name(release_name):
+    def _truncate_name(release_name):
+        """
+        truncates length of file name to avoid max path length OS errors
+        :param release_name (str): name of file without file extension
+        :return (str): truncated file name
+        """
         # 255 length with space for '.torrent' file extension and nul terminator
         max_length = 254 - len('.torrent')
         new_name = release_name[:max_length]
