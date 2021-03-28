@@ -312,6 +312,7 @@ class HistoryManager:
                 search_history = json.load(f)
             return search_history
         except:
+            open(HistoryManager.search_history_file_path, 'w', encoding='utf8').close()
             return {
                 'basenames_searched': [],
                 'download_history': {}
