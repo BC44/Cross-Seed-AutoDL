@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import os
+import platform
 import re
 import requests
 import shutil
@@ -19,7 +20,7 @@ parser.add_argument('-s', '--save-path', metavar='save_path', dest='save_path', 
 parser.add_argument('-u', '--url', metavar='jackett_url', dest='jackett_url', type=str, required=True, help='URL for your Jackett instance, including port number if needed')
 parser.add_argument('-k', '--api-key', metavar='api_key', dest='api_key', type=str, required=True, help='API key for your Jackett instance')
 parser.add_argument('-t', '--trackers', metavar='trackers', dest='trackers', type=str, default=None, required=False, help='Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will be searched.')
-parser.add_argument('--ignore-history', dest='ignore_history', action='store_true', help='Optional. Indicates whether to ignore history file when conducting searches.')
+parser.add_argument('--ignore-history', dest='ignore_history', action='store_true', help='Optional. Indicates whether to skip searches or downloads for files that have previously been searched/downloaded previously.')
 parser.add_argument('--strict-size', dest='strict_size', action='store_true', help='Optional. Indicates whether to match torrent search result sizes to exactly the size of the input path. Might miss otherwise cross-seedtable torrents that contain additional files such as .nfo files')
 ARGS = parser.parse_args()
 
@@ -142,7 +143,7 @@ class Searcher:
 
         if resp_json['Indexers'] == []:
             info = 'No results found due to incorrectly input indexer names ({}). Check ' \
-                   'your spelling/capitalization (are they added to Jackett?). This script has exited'.format(ARGS.trackers)
+                   'your spelling/capitalization. Are they added to Jackett? This script has exited'.format(ARGS.trackers)
             print(info)
             logger.info(info)
             exit(1)
@@ -230,8 +231,13 @@ class Searcher:
 
 
 class Downloader:
-    # for the purpose of trimming a 'Description' URL down to its path only. Some trackers might have multiple proxies
-    # ie. http://tracker.url1.net/details?9012 != http://tracker.url2.com/details?9012, but their path remain the same: /details?9012
+    url_shortcut_format = '[InternetShortcut]\nURL={url}\n'
+    desktop_shortcut_format = '[Desktop Entry]\n' \
+                              'Encoding=UTF-8\n' \
+                              'Type=Link\n' \
+                              'URL={url}\n' \
+                              'Icon=text-html\n'
+
     @staticmethod
     def download(result, search_history):
         release_name = Downloader._sanitize_name( '[{Tracker}] {Title}'.format( **result ) )
@@ -247,16 +253,31 @@ class Downloader:
                 logger.info( f'- Skipping download (previously grabbed): {release_name}' )
                 return
 
-        new_name = Downloader._truncate_name(release_name)
-        file_path = os.path.join(ARGS.save_path, new_name + '.torrent')
-        file_path = Downloader._validate_path(file_path)
-
         print(f'- Grabbing release: {release_name}')
         logger.info(f'- Grabbing release: {release_name}')
 
-        response = requests.get(result['Link'], stream=True)
-        with open(file_path, 'wb') as f:
-            shutil.copyfileobj(response.raw, f)
+        ext = '.torrent'
+        # text data to write to file in case `result['link']` is a magnet URI
+        data = ''
+        if result['Link'].startswith('magnet:?xt='):
+            if platform.system() == 'Windows' or platform.system() == 'Darwin':
+                ext = '.url'
+                data = Downloader.url_shortcut_format.format(url=result['Link'])
+            else:
+                ext = '.desktop'
+                Downloader.desktop_shortcut_format.format(url=result['Link'])
+
+        new_name = Downloader._truncate_name(release_name, ext)
+        file_path = os.path.join(ARGS.save_path, new_name + ext)
+        file_path = Downloader._validate_path(file_path)
+
+        if ext == '.torrent':
+            response = requests.get(result['Link'], stream=True)
+            with open(file_path, 'wb') as f:
+                shutil.copyfileobj(response.raw, f)
+        else:
+            with open(file_path, 'w', encoding='utf8') as fd:
+                fd.write(data)
 
         HistoryManager.append_to_download_history(result['Details'], result['TrackerId'], search_history)
 
@@ -267,14 +288,14 @@ class Downloader:
         return release_name
 
     @staticmethod
-    def _truncate_name(release_name):
+    def _truncate_name(release_name, ext):
         """
         truncates length of file name to avoid max path length OS errors
-        :param release_name (str): name of file without file extension
-        :return (str): truncated file name
+        :param release_name (str): name of file, without file extension
+        :return (str): truncated file name, without extension
         """
-        # 255 length with space for '.torrent' file extension and nul terminator
-        max_length = 254 - len('.torrent')
+        # 255 length with space for nul terminator and file extension
+        max_length = 254 - len(ext)
         new_name = release_name[:max_length]
 
         if os.name == 'nt':
