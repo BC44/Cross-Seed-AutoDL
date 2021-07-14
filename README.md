@@ -44,8 +44,7 @@ Run `pip3 install -r requirements.txt` to install the required libraries
 	                        Tracker(s) on which to search. Comma-separated if
 	                        multiple (no spaces). If ommitted, all trackers will
 	                        be searched.
-	  --ignore-history      Optional. Indicates whether to ignore history file
-	                        when conducting searches.
+	  --ignore-history      Optional. Indicates whether to skip searches or downloads for files that have previously been searched/downloaded previously.
 	  --strict-size         Optional. Indicates whether to match torrent search
 	                        result sizes to exactly the size of the input path.
 
