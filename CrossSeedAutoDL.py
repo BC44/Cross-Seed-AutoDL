@@ -143,7 +143,7 @@ class Searcher:
 
         if resp_json['Indexers'] == []:
             info = 'No results found due to incorrectly input indexer names ({}). Check ' \
-                   'your spelling/capitalization. Are they added to Jackett? This script has exited'.format(ARGS.trackers)
+                   'your spelling/capitalization. Are they added to Jackett? Exiting...'.format(ARGS.trackers)
             print(info)
             logger.info(info)
             exit(1)
@@ -265,19 +265,19 @@ class Downloader:
                 data = Downloader.url_shortcut_format.format(url=result['Link'])
             else:
                 ext = '.desktop'
-                Downloader.desktop_shortcut_format.format(url=result['Link'])
+                data = Downloader.desktop_shortcut_format.format(url=result['Link'])
 
         new_name = Downloader._truncate_name(release_name, ext)
         file_path = os.path.join(ARGS.save_path, new_name + ext)
         file_path = Downloader._validate_path(file_path)
 
-        if ext == '.torrent':
+        if result['Link'].startswith('magnet:?xt='):
+            with open(file_path, 'w', encoding='utf8') as fd:
+                fd.write(data)
+        else:
             response = requests.get(result['Link'], stream=True)
             with open(file_path, 'wb') as f:
                 shutil.copyfileobj(response.raw, f)
-        else:
-            with open(file_path, 'w', encoding='utf8') as fd:
-                fd.write(data)
 
         HistoryManager.append_to_download_history(result['Details'], result['TrackerId'], search_history)
 
