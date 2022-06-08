@@ -22,6 +22,7 @@ parser.add_argument('-k', '--api-key', metavar='api_key', dest='api_key', type=s
 parser.add_argument('-t', '--trackers', metavar='trackers', dest='trackers', type=str, default=None, required=False, help='Tracker(s) on which to search. Comma-separated if multiple (no spaces). If ommitted, all trackers will be searched.')
 parser.add_argument('--ignore-history', dest='ignore_history', action='store_true', help='Optional. Indicates whether to skip searches or downloads for files that have previously been searched/downloaded previously.')
 parser.add_argument('--strict-size', dest='strict_size', action='store_true', help='Optional. Indicates whether to match torrent search result sizes to exactly the size of the input path. Might miss otherwise cross-seedtable torrents that contain additional files such as .nfo files')
+parser.add_argument('--only-dupes', dest='only_dupes', action='store_true', help='Optional. Indicates whether to skip downloads for searches with only one match.')
 ARGS = parser.parse_args()
 
 ARGS.input_path = os.path.expanduser(ARGS.input_path)
@@ -407,8 +408,13 @@ def main():
         matching_results = searcher.search(local_release_data, search_history)
         ###
         # [print(f['Title']) for f in matching_results]
-        for result in matching_results:
-            Downloader.download(result, search_history)
+
+        if len(matching_results) == 1 and ARGS.only_dupes:
+            print('Skipping download. --only-dupes is enabled and no duplicate matches were found.')
+            logger.info('Skipping download. --only-dupes is enabled and no duplicate matches were found.')
+        else:
+            for result in matching_results:
+                Downloader.download(result, search_history)
 
         json.dump(search_history, history_json_fd, indent=4)
         history_json_fd.seek(0)
