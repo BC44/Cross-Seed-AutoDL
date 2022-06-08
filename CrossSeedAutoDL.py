@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 
 parser = argparse.ArgumentParser(description='Searches for cross-seedable torrents')
 parser.add_argument('-p', '--parse-dir', dest='parse_dir', action='store_true', help='Optional. Indicates whether to search for all the items inside the input directory as individual releases')
+parser.add_argument('-g', '--match-release-group', dest='match_release_group', action='store_true', help='Optional. Indicates whether to attempt to extract a release group name and include it in the search query.')
 parser.add_argument('-d', '--delay', metavar='delay', dest='delay', type=int, default=10, help='Pause duration (in seconds) between searches (default: 10)')
 parser.add_argument('-i', '--input-path', metavar='input_path', dest='input_path', type=str, required=True, help='File or Folder for which to find a matching torrent')
 parser.add_argument('-s', '--save-path', metavar='save_path', dest='save_path', type=str, required=True, help='Directory in which to store downloaded torrents')
@@ -48,7 +49,8 @@ class ReleaseData:
             'main_path': path, 
             'basename': os.path.basename(path), 
             'size': ReleaseData._get_total_size(path),
-            'guessed_data': guessit( os.path.basename(path) )
+            'guessed_data': guessit( os.path.basename(path) ),
+            'release_group': ReleaseData._get_release_group(path)
         }
 
     @staticmethod
@@ -86,6 +88,16 @@ class ReleaseData:
         else:
             return os.path.islink(file_path)
 
+    @staticmethod
+    def _get_release_group(path):
+        basename = os.path.basename(path)
+        if len(basename.split('-')) <= 1:
+            return None
+        release_group = os.path.splitext(basename.split('-')[-1])[0].strip()
+        if any(bad_char in release_group for bad_char in [' ', '.']):
+            return None
+        return release_group
+
 
 class Searcher:
     # 1 MibiByte == 1024^2 bytes
@@ -111,6 +123,9 @@ class Searcher:
         search_query = local_release_data['guessed_data']['title']
         if local_release_data['guessed_data'].get('year') is not None:
             search_query += ' ' + str( local_release_data['guessed_data']['year'] )
+
+        if ARGS.match_release_group and local_release_data['release_group'] is not None:
+            search_query += ' ' + local_release_data['release_group']
 
         search_url = self._get_full_search_url(search_query, local_release_data)
         logger.info(search_url)
@@ -386,11 +401,12 @@ def main():
             logger.info( 'Skipping file. Could not get title from filename: {}'.format(local_release_data['basename']) )
             continue
 
-        info = 'Searching for {num} of {size}: {title} {year}'.format(
+        info = 'Searching for {num} of {size}: {title} {year} {release_group}'.format(
             num=i + 1,
             size=len(paths),
             title=local_release_data['guessed_data']['title'], 
-            year=local_release_data['guessed_data'].get('year', '')
+            year=local_release_data['guessed_data'].get('year', ''),
+            release_group=f"""{'' if not ARGS.match_release_group else f"(release group: {local_release_data['release_group']})"}"""
             )
         print(info)
         logger.info(info + f'/ {os.path.basename(path)}')
