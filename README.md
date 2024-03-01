@@ -1,3 +1,8 @@
+This Repo is now archived. It was originally an experiment and a better tool has been created following the same idea for cross seeding.
+
+Please see: [Cross-Seed](https://github.com/cross-seed/cross-seed) by `mmgoodnow`
+
+
 # Cross-Seed-AutoDL
 Finds cross-seedable torrents for Movies and TV via Jackett. Parses existing files/folders in order to download matching torrents.
 
